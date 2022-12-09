@@ -6,10 +6,10 @@ import {
 	joinAllQueries,
 	PreparedQuery,
 } from "./queries";
-import { assertCase } from "./utils";
+import { assertCase, getEntityRef } from "./utils";
 
 class QueryBuilder<Shape extends object, ResultShape> {
-	readonly selectedFields: string[] = [];
+	private readonly selectedFields: string[] = [];
 
 	constructor(readonly targetFromEntity: EntityFromShape<Shape>) {}
 
@@ -25,12 +25,35 @@ class QueryBuilder<Shape extends object, ResultShape> {
 		return {
 			text: `
                 SELECT ${this.selectedFields.join(", ")}
-                FROM ${this.targetFromEntity.schema}.${
-				this.targetFromEntity.tableName
-			}
+                FROM ${getEntityRef(this.targetFromEntity)}
             `,
 			values: [],
 		};
+	}
+
+	buildOne(row: unknown): ResultShape | null {
+		if (row === null) {
+			return null;
+		}
+		if (typeof row !== "object") {
+			throw new Error("Unexpected row received in query result");
+		}
+
+		const resultBuilder: Record<string, unknown> = {};
+		const castedRow = row as unknown as Record<string, unknown>;
+
+		for (const field of this.selectedFields) {
+			const value = castedRow[field];
+			resultBuilder[field] = value;
+		}
+
+		return resultBuilder as unknown as ResultShape;
+	}
+
+	buildMany(rows: unknown[]): ResultShape[] {
+		return rows
+			.map((row) => this.buildOne(row))
+			.filter((row): row is ResultShape => !!row);
 	}
 
 	async getOne(): Promise<ResultShape | null> {
@@ -108,10 +131,6 @@ class JoinedQueryBuilder<Shapes extends Record<string, object>, ResultShape> {
 		return selectedFields;
 	}
 
-	getEntityRef(entity: EntityFromShape<unknown>, alias: string) {
-		return `${entity.schema}.${entity.tableName} AS ${alias}`;
-	}
-
 	getQuery(): FinalizedQuery {
 		return finalizeQuery(
 			joinAllQueries([
@@ -119,7 +138,7 @@ class JoinedQueryBuilder<Shapes extends Record<string, object>, ResultShape> {
 					text: [
 						`
 							SELECT ${this.getSelectedFields().join(", ")}
-							FROM ${this.getEntityRef(
+							FROM ${getEntityRef(
 								this.targetFromEntity,
 								this.targetEntityAlias,
 							)}
