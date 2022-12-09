@@ -15,7 +15,7 @@ import {
 	InternalWhereBuilder,
 	OrWhereQueryBuilder,
 	WhereQueryBuilder,
-} from "./comparator";
+} from "./where-builder";
 
 export class QueryError extends Error {
 	constructor(
