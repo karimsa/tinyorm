@@ -10,3 +10,5 @@ export function expectQuery(given: FinalizedQuery) {
 		},
 	};
 }
+
+export function assertType<T>(value: T) {}

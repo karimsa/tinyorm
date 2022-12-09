@@ -5,7 +5,7 @@ import {
 	createSelectBuilder,
 	createJoinBuilder,
 } from "..";
-import { expectQuery } from "./util";
+import { assertType, expectQuery } from "./util";
 
 class User extends Entity({ schema: "app", tableName: "user" }) {
 	@Column({ type: 'uuid' })
@@ -73,6 +73,87 @@ describe("QueryBuilder", () => {
 				`,
 				values: [],
 			});
+
+			assertType<{
+				user: { id: string; name: string };
+				organization: { name: string };
+			} | null>(
+				await createJoinBuilder()
+					.from(User, "user")
+					.innerJoin(
+						Organization,
+						"organization",
+						sql`organization.id = any(user.organization_ids)`,
+					)
+					.select("user", ["id", "name"])
+					.select("organization", ["name"])
+					.getOne(),
+			);
+			assertType<
+				{
+					user: { id: string; name: string };
+					organization: { name: string };
+				}[]
+			>(
+				await createJoinBuilder()
+					.from(User, "user")
+					.innerJoin(
+						Organization,
+						"organization",
+						sql`organization.id = any(user.organization_ids)`,
+					)
+					.select("user", ["id", "name"])
+					.select("organization", ["name"])
+					.getMany(),
+			);
+		});
+		it("should build results correctly", async () => {
+			expect(
+				createJoinBuilder()
+					.from(User, "user")
+					.innerJoin(
+						Organization,
+						"organization",
+						sql`organization.id = any(user.organization_ids)`,
+					)
+					.select("user", ["id", "name"])
+					.select("organization", ["name"])
+					.buildOne({
+						user_id: "user_id",
+						user_name: "user_name",
+						organization_name: "organization_name",
+					}),
+			).toEqual({
+				user: { id: "user_id", name: "user_name" },
+				organization: {
+					name: "organization_name",
+				},
+			});
+			expect(
+				createJoinBuilder()
+					.from(User, "user")
+					.innerJoin(
+						Organization,
+						"organization",
+						sql`organization.id = any(user.organization_ids)`,
+					)
+					.select("user", ["id", "name"])
+					.select("organization", ["name"])
+					.buildMany([
+						{
+							user_id: "user_id",
+							user_name: "user_name",
+							organization_name: "organization_name",
+						},
+					]),
+			).toEqual([
+				{
+					user: { id: "user_id", name: "user_name" },
+					organization: {
+						name: "organization_name",
+					},
+				},
+			]);
 		});
 	});
 });

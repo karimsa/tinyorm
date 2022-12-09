@@ -85,7 +85,10 @@ class JoinedQueryBuilder<Shapes extends Record<string, object>, ResultShape> {
 	>(
 		alias: Alias,
 		keys: Keys[],
-	): JoinedQueryBuilder<Shapes, ResultShape & Pick<Shapes[Alias], Keys>> {
+	): JoinedQueryBuilder<
+		Shapes,
+		ResultShape & { [key in Alias]: Pick<Shapes[Alias], Keys> }
+	> {
 		const selectedFields = this.selectedFields.get(alias) ?? [];
 		this.selectedFields.set(alias, selectedFields);
 		selectedFields.push(...keys);
@@ -127,6 +130,35 @@ class JoinedQueryBuilder<Shapes extends Record<string, object>, ResultShape> {
 				...this.joins,
 			]),
 		);
+	}
+
+	buildOne(row: unknown): ResultShape | null {
+		if (row === null) {
+			return null;
+		}
+		if (typeof row !== "object") {
+			throw new Error("Unexpected row received in query result");
+		}
+
+		const resultBuilder: Record<string, Record<string, unknown>> = {};
+		const castedRow = row as unknown as Record<string, unknown>;
+
+		for (const [entityName, fields] of this.selectedFields.entries()) {
+			resultBuilder[entityName] = {};
+
+			for (const field of fields) {
+				const value = castedRow[`${entityName}_${field}`];
+				resultBuilder[entityName][field] = value;
+			}
+		}
+
+		return resultBuilder as unknown as ResultShape;
+	}
+
+	buildMany(rows: unknown[]): ResultShape[] {
+		return rows
+			.map((row) => this.buildOne(row))
+			.filter((row): row is ResultShape => !!row);
 	}
 
 	async getOne(): Promise<ResultShape | null> {
