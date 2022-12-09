@@ -72,7 +72,7 @@ class QueryBuilder<
 	Shape extends object,
 	ResultShape,
 > extends BaseQueryBuilder<ResultShape> {
-	private readonly selectedFields: string[] = [];
+	readonly #selectedFields: string[] = [];
 
 	constructor(readonly targetFromEntity: EntityFromShape<Shape>) {
 		super();
@@ -81,7 +81,7 @@ class QueryBuilder<
 	select<Keys extends string & keyof Shape>(
 		keys: Keys[],
 	): QueryBuilder<Shape, ResultShape & Pick<Shape, Keys>> {
-		this.selectedFields.push(...keys);
+		this.#selectedFields.push(...keys);
 		// rome-ignore lint/suspicious/noExplicitAny: <explanation>
 		return this as any;
 	}
@@ -89,7 +89,7 @@ class QueryBuilder<
 	getQuery(): FinalizedQuery {
 		return {
 			text: `
-                SELECT ${this.selectedFields.join(", ")}
+                SELECT ${this.#selectedFields.join(", ")}
                 FROM ${getEntityRef(this.targetFromEntity)}
             `,
 			values: [],
@@ -107,7 +107,7 @@ class QueryBuilder<
 		const resultBuilder: Record<string, unknown> = {};
 		const castedRow = row as unknown as Record<string, unknown>;
 
-		for (const field of this.selectedFields) {
+		for (const field of this.#selectedFields) {
 			const value = castedRow[field];
 			resultBuilder[field] = value;
 		}
@@ -158,9 +158,9 @@ class JoinedQueryBuilder<
 	Shapes extends Record<string, object>,
 	ResultShape,
 > extends BaseQueryBuilder<ResultShape> {
-	readonly selectedFields = new Map<string, string[]>();
-	readonly joins: PreparedQuery[] = [];
-	readonly includedEntites = new Map<string, EntityFromShape<unknown>>();
+	readonly #selectedFields = new Map<string, string[]>();
+	readonly #joins: PreparedQuery[] = [];
+	readonly #includedEntites = new Map<string, EntityFromShape<unknown>>();
 
 	constructor(
 		readonly targetFromEntity: EntityFromShape<unknown>,
@@ -175,14 +175,14 @@ class JoinedQueryBuilder<
 		condition: PreparedQuery,
 	): JoinedQueryBuilder<Shapes & { [key in Alias]: JoinedShape }, ResultShape> {
 		assertCase("join alias", alias);
-		if (this.includedEntites.has(alias)) {
+		if (this.#includedEntites.has(alias)) {
 			throw new Error(
 				`Cannot join two entities with same alias (attempted to alias ${joinedEntity.tableName} as ${alias})`,
 			);
 		}
 
-		this.includedEntites.set(alias, joinedEntity);
-		this.joins.push(
+		this.#includedEntites.set(alias, joinedEntity);
+		this.#joins.push(
 			joinQueries(
 				{
 					text: [
@@ -206,8 +206,8 @@ class JoinedQueryBuilder<
 		Shapes,
 		ResultShape & { [key in Alias]: Pick<Shapes[Alias], Keys> }
 	> {
-		const selectedFields = this.selectedFields.get(alias) ?? [];
-		this.selectedFields.set(alias, selectedFields);
+		const selectedFields = this.#selectedFields.get(alias) ?? [];
+		this.#selectedFields.set(alias, selectedFields);
 		selectedFields.push(...keys);
 		// rome-ignore lint/suspicious/noExplicitAny: The result has changed at compile-time
 		return this as any;
@@ -215,7 +215,7 @@ class JoinedQueryBuilder<
 
 	getSelectedFields() {
 		const selectedFields: string[] = [];
-		for (const [entityName, fields] of this.selectedFields.entries()) {
+		for (const [entityName, fields] of this.#selectedFields.entries()) {
 			selectedFields.push(
 				...fields.map(
 					(field) => `${entityName}.${field} AS ${entityName}_${field}`,
@@ -240,7 +240,7 @@ class JoinedQueryBuilder<
 					],
 					params: [],
 				},
-				...this.joins,
+				...this.#joins,
 			]),
 		);
 	}
@@ -256,7 +256,7 @@ class JoinedQueryBuilder<
 		const resultBuilder: Record<string, Record<string, unknown>> = {};
 		const castedRow = row as unknown as Record<string, unknown>;
 
-		for (const [entityName, fields] of this.selectedFields.entries()) {
+		for (const [entityName, fields] of this.#selectedFields.entries()) {
 			resultBuilder[entityName] = {};
 
 			for (const field of fields) {
