@@ -10,11 +10,12 @@ interface QueryVariable {
 	value: PostgresValueType;
 }
 
-function isQueryVariable(variable: unknown): variable is QueryVariable {
+// rome-ignore lint/suspicious/noExplicitAny: <explanation>
+function isQueryVariable(variable: any): variable is QueryVariable {
 	return (
 		typeof variable === "object" &&
 		variable !== null &&
-		typeof variable["type"] === "string" &&
+		typeof variable.type === "string" &&
 		{}.hasOwnProperty.call(variable, "value")
 	);
 }
