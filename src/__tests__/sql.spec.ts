@@ -24,7 +24,7 @@ describe("sql", () => {
 				joinQueries(
 					sql`
 						SELECT *
-						FROM foo
+						FROM ${sql.getEntityRef({ schema: "public", tableName: "foo" })}
 						WHERE created_at >= ${new Date("2022-01-01T20:47:18.789Z")}
 						AND name = ${"test"}
 					`,
@@ -35,7 +35,7 @@ describe("sql", () => {
 				),
 			),
 		).toEqual({
-			text: "SELECT * FROM foo WHERE created_at >= $1::timestamp AND name = $2::text AND is_row = $3::boolean AND stuff = $4",
+			text: "SELECT * FROM public.foo WHERE created_at >= $1::timestamp AND name = $2::text AND is_row = $3::boolean AND stuff = $4",
 			values: ["2022-01-01T20:47:18.789Z", "test", true, null],
 		});
 	});

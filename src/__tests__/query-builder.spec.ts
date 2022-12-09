@@ -86,10 +86,18 @@ describe("QueryBuilder", () => {
 					)
 					.select("user", ["id", "name"])
 					.select("organization", ["name"])
-					.andWhere("user", (where) =>
-						where("name")
+					.where((where) =>
+						// where.either([
+						// 	where("user", "name")
+						// 		.Like("%Karim%")
+						// 		.andWhere("user", "status")
+						// 		.EqualsAny(["Active"]),
+						// 	where("organization", "name").Like("Foko"),
+						// ]),
+
+						where("user", "name")
 							.Like("%Karim%")
-							.orWhere("status")
+							.andWhere("user", "status")
 							.EqualsAny(["Active"]),
 					)
 					.getQuery(),
@@ -100,9 +108,9 @@ describe("QueryBuilder", () => {
 						organization.name AS organization_name
 					FROM app.user AS user
 					INNER JOIN app.organization AS organization ON organization.id = any(user.organization_ids)
-					WHERE user.name LIKE $1::text OR user.status = ANY($2::text[] )
+					WHERE (user.name LIKE $1::text AND user.status = ANY($2::text[] )) OR (organization.name LIKE $3::text )
 				`,
-				values: ["%Karim%", ["Active"]],
+				values: ["%Karim%", ["Active"], "Foko"],
 			});
 
 			assertType<{

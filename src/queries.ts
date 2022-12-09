@@ -1,3 +1,5 @@
+import { EntityFromShape } from "./entity";
+
 export type PostgresSimpleValueType = string | number | boolean | Date;
 
 export type PostgresValueType =
@@ -67,20 +69,23 @@ function getPgTypeOf(
 ): Pick<QueryVariable, "isArray" | "type"> {
 	if (Array.isArray(value)) {
 		const firstValue = value.find((v) => v !== null);
-		if (!firstValue) {
-			throw new Error(
+		if (firstValue === undefined) {
+			console.dir({ value, firstValue });
+			throw new UnknownQueryParameterTypeError(
 				`Failed to find type for array: ${JSON.stringify(
 					value,
 				)} (use a typecast helper)`,
+				value,
 			);
 		}
 
 		const typeGuess = getPgTypeOf(firstValue);
 		if (!typeGuess) {
-			throw new Error(
+			throw new UnknownQueryParameterTypeError(
 				`Failed to find type for array: ${JSON.stringify(
 					value,
 				)} (use a typecast helper)`,
+				value,
 			);
 		}
 
@@ -225,6 +230,16 @@ const typeCastHelpers = {
 		getQueryVariable(date, "timestamp"),
 };
 
+const getEntityRef = (
+	entity: Pick<EntityFromShape<unknown>, "schema" | "tableName">,
+	alias?: string,
+) => {
+	if (alias) {
+		return sql.asUnescaped(`${entity.schema}.${entity.tableName} AS ${alias}`);
+	}
+	return sql.asUnescaped(`${entity.schema}.${entity.tableName}`);
+};
+
 export const sql = Object.assign(
 	(
 		templateStrings: TemplateStringsArray,
@@ -259,6 +274,7 @@ export const sql = Object.assign(
 	},
 	{
 		...typeCastHelpers,
+		getEntityRef,
 	},
 );
 

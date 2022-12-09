@@ -6,8 +6,9 @@ import {
 	joinAllQueries,
 	PreparedQuery,
 	PostgresValueType,
+	sql,
 } from "./queries";
-import { assertCase, getEntityRef } from "./utils";
+import { assertCase } from "./utils";
 import { Pool as PostgresClientPool, PoolClient as PostgresClient } from "pg";
 import {
 	AndWhereQueryBuilder,
@@ -102,7 +103,7 @@ class QueryBuilder<
 		return {
 			text: `
                 SELECT ${this.#selectedFields.join(", ")}
-                FROM ${getEntityRef(this.targetFromEntity)}
+                FROM ${sql.getEntityRef(this.targetFromEntity).value}
             `,
 			values: [],
 		};
@@ -154,7 +155,7 @@ class JoinedQueryBuilder<
 		joinedEntity: EntityFromShape<JoinedShape>,
 		alias: EntityAlias<Alias, Shapes>,
 		condition: PreparedQuery,
-	): JoinedQueryBuilder<Shapes & { [key in Alias]: JoinedShape }, ResultShape> {
+	) {
 		assertCase("join alias", alias);
 		if (this.#includedEntites.has(alias)) {
 			throw new Error(
@@ -167,14 +168,17 @@ class JoinedQueryBuilder<
 			joinQueries(
 				{
 					text: [
-						`INNER JOIN ${joinedEntity.schema}.${joinedEntity.tableName} AS ${alias} ON `,
+						`INNER JOIN ${sql.getEntityRef(joinedEntity, alias).value} ON `,
 					],
 					params: [],
 				},
 				condition,
 			),
 		);
-		return this;
+		return this as unknown as JoinedQueryBuilder<
+			Shapes & { [key in Alias]: JoinedShape },
+			ResultShape
+		>;
 	}
 
 	select<
@@ -206,30 +210,20 @@ class JoinedQueryBuilder<
 		return selectedFields;
 	}
 
-	andWhere<Alias extends string & keyof Shapes>(
-		alias: Alias,
+	where<Alias extends string & keyof Shapes>(
 		whereBuilder: (
-			where: WhereQueryBuilder<Shapes[Alias]>,
-		) =>
-			| AndWhereQueryBuilder<Shapes[Alias]>
-			| OrWhereQueryBuilder<Shapes[Alias]>,
+			where: WhereQueryBuilder<Shapes>,
+		) => AndWhereQueryBuilder<Shapes> | OrWhereQueryBuilder<Shapes>,
 	) {
-		const targetEntity = this.#includedEntites.get(alias);
-		if (!targetEntity) {
-			throw new Error(
-				`Unrecognized entity alias: ${alias} (known entities: ${JSON.stringify(
-					Array.from(this.#includedEntites.keys()),
-				)})`,
-			);
-		}
-
-		const builder = new InternalWhereBuilder<Shapes[Alias]>(
-			targetEntity.tableName,
-		);
-		const where = whereBuilder(((field: string & keyof Shapes[Alias]) =>
-			builder.openWhere(field)) as unknown as WhereQueryBuilder<
-			Shapes[Alias]
-		>) as unknown as InternalWhereBuilder<Shapes[Alias]>;
+		const builder = new InternalWhereBuilder<Shapes>(this.#includedEntites);
+		const where = whereBuilder((<Alias extends string & keyof Shapes>(
+			alias: Alias,
+			field: string & keyof Shapes[Alias],
+		) =>
+			builder.openWhere(
+				alias,
+				field,
+			)) as unknown as WhereQueryBuilder<Shapes>) as unknown as InternalWhereBuilder<Shapes>;
 
 		const query = where.getQuery();
 		if (this.#conditions.length === 0) {
@@ -241,7 +235,10 @@ class JoinedQueryBuilder<
 			this.#conditions.push(query);
 		}
 
-		return this;
+		return this as unknown as Omit<
+			JoinedQueryBuilder<Shapes, ResultShape>,
+			"where"
+		>;
 	}
 
 	getQuery(): FinalizedQuery {
@@ -251,10 +248,10 @@ class JoinedQueryBuilder<
 					text: [
 						`
 							SELECT ${this.#getSelectedFields().join(", ")}
-							FROM ${getEntityRef(
-								this.targetFromEntity,
-								this.targetEntityAlias,
-							)}
+							FROM ${
+								sql.getEntityRef(this.targetFromEntity, this.targetEntityAlias)
+									.value
+							}
 						`,
 					],
 					params: [],
