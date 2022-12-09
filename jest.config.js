@@ -5,4 +5,5 @@ module.exports = {
 	transform: {
 		"^.+\\.tsx?$": "esbuild-jest",
 	},
+	testMatch: ["**/__tests__/**/*.spec.ts"],
 };

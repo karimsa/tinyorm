@@ -1,6 +1,11 @@
 type PostgresValueType = string | number | boolean | Date | null | undefined;
 
 export interface PreparedQuery {
+	text: string[];
+	params: QueryVariable[];
+}
+
+export interface FinalizedQuery {
 	text: string;
 	values: PostgresValueType[];
 }
@@ -119,23 +124,20 @@ export const sql = Object.assign(
 		...parameters: (PostgresValueType | QueryVariable)[]
 	): PreparedQuery => {
 		const preparedQuery: PreparedQuery = {
-			text: templateStrings[0],
-			values: [],
+			text: [templateStrings[0]],
+			params: [],
 		};
 
 		for (const [index, param] of parameters.entries()) {
 			const queryVar = getQueryVariable(param);
-			const typeCast = queryVar.type === null ? "" : `::${queryVar.type}`;
 
-			preparedQuery.text += `$${index + 1}${typeCast}${
-				templateStrings[index + 1]
-			}`;
-			preparedQuery.values.push(queryVar.value);
+			preparedQuery.text.push(templateStrings[index + 1]);
+			preparedQuery.params.push(queryVar);
 		}
 
 		return {
 			...preparedQuery,
-			text: preparedQuery.text.replace(/\s+/g, " ").trim(),
+			text: preparedQuery.text,
 		};
 	},
 	{
@@ -147,3 +149,18 @@ export const sql = Object.assign(
 			getQueryVariable(date, "timestamp"),
 	},
 );
+
+// Finalizes a prepared query into a query that is accepted by 'pg'
+export function finalizeQuery(query: PreparedQuery): FinalizedQuery {
+	const finalizedQuery: FinalizedQuery = {
+		text: query.text[0] ?? "",
+		values: [],
+	};
+	for (const [index, queryVar] of query.params.entries()) {
+		const typeCast = queryVar.type === null ? "" : `::${queryVar.type}`;
+
+		finalizedQuery.text += `$${index + 1}${typeCast}${query.text[index + 1]}`;
+		finalizedQuery.values.push(queryVar.value);
+	}
+	return finalizedQuery;
+}
