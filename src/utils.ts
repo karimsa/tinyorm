@@ -16,7 +16,7 @@ export const getEntityRef = (
 	alias?: string,
 ) => {
 	if (alias) {
-		return `"${entity.schema}"."${entity.tableName}" AS ${alias}`;
+		return `${entity.schema}.${entity.tableName} AS ${alias}`;
 	}
-	return `"${entity.schema}"."${entity.tableName}"`;
+	return `${entity.schema}.${entity.tableName}`;
 };
