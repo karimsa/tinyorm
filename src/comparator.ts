@@ -3,8 +3,8 @@ import {
 	PreparedQuery,
 	PostgresValueType,
 	sql,
-	PostgresSimpleValueType,
 	joinAllQueries,
+	finalizeQuery,
 } from "./queries";
 
 export type WhereQueryComparators<
@@ -19,31 +19,60 @@ export type WhereQueryComparators<
 	Like(values: string): NextQueryBuilder;
 };
 
-interface BaseWhereBuilder {
-	getQuery(): PreparedQuery;
-}
-
 // TODO: Maybe restrict it to act as pure modifiers that only step forward
 // otherwise the type safety is useless
-export class InternalWhereBuilder<Shapes extends Record<string, object>>
-	implements BaseWhereBuilder
-{
+export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 	#binaryOperator: "AND" | "OR" | null = null;
-	#queries: PreparedQuery[] = [];
-	#knownEntities: Map<string, EntityFromShape<unknown>>;
+	readonly #queries: PreparedQuery[];
+	readonly #knownEntities: Map<
+		string & keyof Shapes,
+		Pick<EntityFromShape<unknown>, "schema" | "tableName">
+	>;
 
-	constructor(knownEntities: Map<string, EntityFromShape<unknown>>) {
+	constructor(
+		knownEntities: Map<
+			string & keyof Shapes,
+			Pick<EntityFromShape<unknown>, "schema" | "tableName">
+		>,
+		queries: PreparedQuery[] = [],
+	) {
 		this.#knownEntities = knownEntities;
+		this.#queries = queries;
 	}
 
-	openWhere<Alias extends string & keyof Shapes>(
-		entityName: Alias,
-		field: string & keyof Shapes[Alias],
-	) {
-		if (this.#binaryOperator || this.#queries.length > 0) {
-			throw new Error("Cannot re-open where builder");
-		}
-		return this.#openComparator(entityName, field);
+	getBuilder() {
+		const openWhere = <Alias extends string & keyof Shapes>(
+			entityName: Alias,
+			field: string & keyof Shapes[Alias],
+		) => {
+			if (this.#binaryOperator || this.#queries.length > 0) {
+				throw new Error("Cannot re-open where builder");
+			}
+			return this.#openComparator(entityName, field);
+		};
+
+		return Object.assign(openWhere, {
+			either: this.either.bind(this),
+		});
+	}
+
+	either(
+		whereBuilders: (
+			| AndWhereQueryBuilder<Shapes>
+			| OrWhereQueryBuilder<Shapes>
+		)[],
+	): InternalWhereBuilder<Shapes> {
+		const builders =
+			whereBuilders as unknown[] as InternalWhereBuilder<Shapes>[];
+		return new InternalWhereBuilder(
+			this.#knownEntities,
+			builders.flatMap((builder, index) => [
+				builder.getQuery(),
+				...(index === builders.length - 1
+					? []
+					: [{ text: [" OR "], params: [] }]),
+			]),
+		);
 	}
 
 	andWhere<
@@ -55,6 +84,7 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>>
 				`Cannot convert ${this.#binaryOperator} where builder into 'AND WHERE'`,
 			);
 		}
+
 		this.#binaryOperator = "AND";
 		return this.#openComparator(
 			entityName,
@@ -84,8 +114,8 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>>
 		>;
 	}
 
-	#getColumnName(entity: EntityFromShape<unknown>, field: string) {
-		return sql.asUnescaped(`${entity.tableName}.${field}`);
+	#getColumnName(alias: string, field: string) {
+		return sql.asUnescaped(`"${alias}"."${field}"`);
 	}
 
 	#openComparator<
@@ -103,31 +133,29 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>>
 
 		const comparators: Record<
 			string,
-			(value: PostgresValueType) => typeof this
+			(value: PostgresValueType) => InternalWhereBuilder<Shapes>
 		> = {
 			Equals: (value) =>
-				this.#appendQuery(
-					sql`${this.#getColumnName(entity, field)} = ${value}`,
-				),
+				this.#appendQuery(sql`${this.#getColumnName(alias, field)} = ${value}`),
 			NotEquals: (value) =>
 				this.#appendQuery(
-					sql`${this.#getColumnName(entity, field)} != ${value}`,
+					sql`${this.#getColumnName(alias, field)} != ${value}`,
 				),
 			EqualsAny: (values) =>
 				this.#appendQuery(
-					sql`${this.#getColumnName(entity, field)} = ANY(${values})`,
+					sql`${this.#getColumnName(alias, field)} = ANY(${values})`,
 				),
 			EqualsNone: (values) =>
 				this.#appendQuery(
-					sql`${this.#getColumnName(entity, field)} <> ANY(${values})`,
+					sql`${this.#getColumnName(alias, field)} <> ANY(${values})`,
 				),
 			Like: (value) =>
 				this.#appendQuery(
-					sql`${this.#getColumnName(entity, field)} LIKE ${value}`,
+					sql`${this.#getColumnName(alias, field)} LIKE ${value}`,
 				),
 			NotLike: (value) =>
 				this.#appendQuery(
-					sql`${this.#getColumnName(entity, field)} NOT LIKE ${value}`,
+					sql`${this.#getColumnName(alias, field)} NOT LIKE ${value}`,
 				),
 		};
 		return comparators as unknown as WhereQueryComparators<
@@ -138,31 +166,38 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>>
 
 	#appendQuery(query: PreparedQuery) {
 		if (this.#queries.length === 0) {
-			this.#queries.push(query);
-		} else {
-			this.#queries.push({
+			return new InternalWhereBuilder<Shapes>(this.#knownEntities, [
+				...this.#queries,
+				query,
+			]);
+		}
+		return new InternalWhereBuilder<Shapes>(this.#knownEntities, [
+			...this.#queries,
+			{
 				...query,
 				text: [
 					`${this.#binaryOperator!} ${query.text[0]}`,
 					...query.text.slice(1),
 				],
-			});
-		}
-		return this;
+			},
+		]);
 	}
 
 	getQuery(): PreparedQuery {
-		return joinAllQueries(this.#queries);
+		const query = joinAllQueries(this.#queries);
+		query.text[0] = `(${query.text[0]}`;
+		query.text[query.text.length - 1] = `${query.text[query.text.length - 1]})`;
+		return query;
 	}
 }
 
 export type AndWhereQueryBuilder<Shapes extends Record<string, object>> = Pick<
 	InternalWhereBuilder<Shapes>,
-	"andWhere"
+	"andWhere" | "getQuery"
 >;
 export type OrWhereQueryBuilder<Shapes extends Record<string, object>> = Pick<
 	InternalWhereBuilder<Shapes>,
-	"orWhere"
+	"orWhere" | "getQuery"
 >;
 export type WhereQueryBuilder<Shapes extends Record<string, object>> =
-	InternalWhereBuilder<Shapes>["openWhere"];
+	ReturnType<InternalWhereBuilder<Shapes>["getBuilder"]>;

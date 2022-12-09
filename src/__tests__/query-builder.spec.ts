@@ -37,7 +37,7 @@ describe("QueryBuilder", () => {
 			expectQuery(
 				createSelectBuilder().from(User).select(["id", "name"]).getQuery(),
 			).toEqual({
-				text: "SELECT id, name FROM app.user",
+				text: `SELECT "id", "name" FROM "app"."user"`,
 				values: [],
 			});
 		});
@@ -50,8 +50,8 @@ describe("QueryBuilder", () => {
 			).toEqual({
 				text: `
 					SELECT
-						user.id AS user_id, user.name AS user_name
-					FROM app.user AS user
+						"user"."id" AS "user_id", "user"."name" AS "user_name"
+					FROM "app"."user" AS "user"
 				`,
 				values: [],
 			});
@@ -69,10 +69,10 @@ describe("QueryBuilder", () => {
 			).toEqual({
 				text: `
 					SELECT
-						user.id AS user_id, user.name AS user_name,
-						organization.name AS organization_name
-					FROM app.user AS user
-					INNER JOIN app.organization AS organization ON organization.id = any(user.organization_ids)
+						"user"."id" AS "user_id", "user"."name" AS "user_name",
+						"organization"."name" AS "organization_name"
+					FROM "app"."user" AS "user"
+					INNER JOIN "app"."organization" AS "organization" ON organization.id = any(user.organization_ids)
 				`,
 				values: [],
 			});
@@ -87,28 +87,23 @@ describe("QueryBuilder", () => {
 					.select("user", ["id", "name"])
 					.select("organization", ["name"])
 					.where((where) =>
-						// where.either([
-						// 	where("user", "name")
-						// 		.Like("%Karim%")
-						// 		.andWhere("user", "status")
-						// 		.EqualsAny(["Active"]),
-						// 	where("organization", "name").Like("Foko"),
-						// ]),
-
-						where("user", "name")
-							.Like("%Karim%")
-							.andWhere("user", "status")
-							.EqualsAny(["Active"]),
+						where.either([
+							where("user", "name")
+								.Like("%Karim%")
+								.andWhere("user", "status")
+								.EqualsAny(["Active"]),
+							where("organization", "name").Like("Foko"),
+						]),
 					)
 					.getQuery(),
 			).toEqual({
 				text: `
 					SELECT
-						user.id AS user_id, user.name AS user_name,
-						organization.name AS organization_name
-					FROM app.user AS user
-					INNER JOIN app.organization AS organization ON organization.id = any(user.organization_ids)
-					WHERE (user.name LIKE $1::text AND user.status = ANY($2::text[] )) OR (organization.name LIKE $3::text )
+						"user"."id" AS "user_id", "user"."name" AS "user_name",
+						"organization"."name" AS "organization_name"
+					FROM "app"."user" AS "user"
+					INNER JOIN "app"."organization" AS "organization" ON organization.id = any(user.organization_ids)
+					WHERE (("user"."name" LIKE $1::text AND "user"."status" = ANY($2::text[] )) OR ("organization"."name" LIKE $3::text ))
 				`,
 				values: ["%Karim%", ["Active"], "Foko"],
 			});

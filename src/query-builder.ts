@@ -102,7 +102,9 @@ class QueryBuilder<
 	getQuery(): FinalizedQuery {
 		return {
 			text: `
-                SELECT ${this.#selectedFields.join(", ")}
+                SELECT ${this.#selectedFields
+									.map((field) => `"${field}"`)
+									.join(", ")}
                 FROM ${sql.getEntityRef(this.targetFromEntity).value}
             `,
 			values: [],
@@ -184,18 +186,15 @@ class JoinedQueryBuilder<
 	select<
 		Alias extends string & keyof Shapes,
 		Keys extends string & keyof Shapes[Alias],
-	>(
-		alias: Alias,
-		keys: Keys[],
-	): JoinedQueryBuilder<
-		Shapes,
-		ResultShape & { [key in Alias]: Pick<Shapes[Alias], Keys> }
-	> {
+	>(alias: Alias, keys: Keys[]) {
 		const selectedFields = this.#selectedFields.get(alias) ?? [];
 		this.#selectedFields.set(alias, selectedFields);
 		selectedFields.push(...keys);
-		// rome-ignore lint/suspicious/noExplicitAny: The result has changed at compile-time
-		return this as any;
+
+		return this as unknown as JoinedQueryBuilder<
+			Shapes,
+			ResultShape & { [key in Alias]: Pick<Shapes[Alias], Keys> }
+		>;
 	}
 
 	#getSelectedFields() {
@@ -203,29 +202,23 @@ class JoinedQueryBuilder<
 		for (const [entityName, fields] of this.#selectedFields.entries()) {
 			selectedFields.push(
 				...fields.map(
-					(field) => `${entityName}.${field} AS ${entityName}_${field}`,
+					(field) => `"${entityName}"."${field}" AS "${entityName}_${field}"`,
 				),
 			);
 		}
 		return selectedFields;
 	}
 
-	where<Alias extends string & keyof Shapes>(
+	where(
 		whereBuilder: (
 			where: WhereQueryBuilder<Shapes>,
 		) => AndWhereQueryBuilder<Shapes> | OrWhereQueryBuilder<Shapes>,
 	) {
-		const builder = new InternalWhereBuilder<Shapes>(this.#includedEntites);
-		const where = whereBuilder((<Alias extends string & keyof Shapes>(
-			alias: Alias,
-			field: string & keyof Shapes[Alias],
-		) =>
-			builder.openWhere(
-				alias,
-				field,
-			)) as unknown as WhereQueryBuilder<Shapes>) as unknown as InternalWhereBuilder<Shapes>;
+		const builder = whereBuilder(
+			new InternalWhereBuilder<Shapes>(this.#includedEntites).getBuilder(),
+		) as unknown as InternalWhereBuilder<Shapes>;
 
-		const query = where.getQuery();
+		const query = builder.getQuery();
 		if (this.#conditions.length === 0) {
 			this.#conditions.push({
 				...query,

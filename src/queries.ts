@@ -235,9 +235,11 @@ const getEntityRef = (
 	alias?: string,
 ) => {
 	if (alias) {
-		return sql.asUnescaped(`${entity.schema}.${entity.tableName} AS ${alias}`);
+		return sql.asUnescaped(
+			`"${entity.schema}"."${entity.tableName}" AS "${alias}"`,
+		);
 	}
-	return sql.asUnescaped(`${entity.schema}.${entity.tableName}`);
+	return sql.asUnescaped(`"${entity.schema}"."${entity.tableName}"`);
 };
 
 export const sql = Object.assign(
