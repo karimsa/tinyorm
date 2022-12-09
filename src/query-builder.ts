@@ -152,7 +152,9 @@ class QueryBuilder<
 }
 
 type EntityAlias<Alias, Shapes extends Record<string, object>> = Alias &
-	(Alias extends keyof Shapes ? never : {});
+	(Alias extends keyof Shapes
+		? { invalid: "Cannot reuse an existing alias" }
+		: {});
 
 class JoinedQueryBuilder<
 	Shapes extends Record<string, object>,
