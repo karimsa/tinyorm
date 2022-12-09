@@ -9,9 +9,9 @@ describe("sql", () => {
 				SELECT *
 				FROM foo
 				WHERE created_at >= ${new Date("2022-01-01T20:47:18.789Z")}
-				AND name = ${"test"}
-				AND is_row = ${true}
-				AND stuff = ${undefined}
+					AND name = ${"test"}
+					AND is_row = ${true}
+					AND stuff = ${undefined}
 			`),
 		).toEqual({
 			text: "SELECT * FROM foo WHERE created_at >= $1::timestamp AND name = $2::text AND is_row = $3::boolean AND stuff = $4",
