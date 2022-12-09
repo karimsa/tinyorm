@@ -5,10 +5,13 @@
   "types": "./src",
   "scripts": {
     "test": "jest",
-    "build": "node esbuild"
+    "build": "node esbuild",
+    "lint": "rome check src && tsc"
   },
   "devDependencies": {
+    "@babel/plugin-syntax-decorators": "7.19.0",
     "@types/jest": "29.2.4",
+    "@types/lodash.snakecase": "4.1.7",
     "@types/node": "18.11.12",
     "@types/pg": "8.6.5",
     "esbuild": "0.16.3",
@@ -19,5 +22,8 @@
   },
   "peerDependencies": {
     "pg": "8.8.0"
+  },
+  "dependencies": {
+    "lodash.snakecase": "4.1.1"
   }
 }
