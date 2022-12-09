@@ -21,8 +21,13 @@ export class QueryError extends Error {
 
 abstract class BaseQueryBuilder<ResultShape> {
 	abstract buildOne(row: unknown): ResultShape | null;
-	abstract buildMany(rows: unknown[]): ResultShape[];
 	abstract getQuery(): FinalizedQuery;
+
+	buildMany(rows: unknown[]): ResultShape[] {
+		return rows
+			.map((row) => this.buildOne(row))
+			.filter((row): row is ResultShape => !!row);
+	}
 
 	private async executeQuery(client: PostgresClient, query: FinalizedQuery) {
 		try {
@@ -113,41 +118,6 @@ class QueryBuilder<
 		}
 
 		return resultBuilder as unknown as ResultShape;
-	}
-
-	buildMany(rows: unknown[]): ResultShape[] {
-		return rows
-			.map((row) => this.buildOne(row))
-			.filter((row): row is ResultShape => !!row);
-	}
-
-	async getOne(pool: PostgresClientPool): Promise<ResultShape | null> {
-		const client = await pool.connect();
-
-		const query = this.getQuery();
-		query.text += " LIMIT 1";
-
-		const { rows } = await client.query(query);
-		client.release();
-		return this.buildOne(rows[0]);
-	}
-
-	async getOneOrFail(pool: PostgresClientPool): Promise<ResultShape> {
-		const result = await this.getOne(pool);
-		if (!result) {
-			throw new Error("Failed to find any results to query");
-		}
-		return result;
-	}
-
-	async getMany(pool: PostgresClientPool): Promise<ResultShape[]> {
-		const client = await pool.connect();
-
-		const query = this.getQuery();
-		query.text += " LIMIT 1";
-
-		const { rows } = await client.query(query);
-		return this.buildMany(rows);
 	}
 }
 
@@ -268,12 +238,6 @@ class JoinedQueryBuilder<
 		}
 
 		return resultBuilder as unknown as ResultShape;
-	}
-
-	buildMany(rows: unknown[]): ResultShape[] {
-		return rows
-			.map((row) => this.buildOne(row))
-			.filter((row): row is ResultShape => !!row);
 	}
 }
 
