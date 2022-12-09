@@ -12,3 +12,11 @@ export function expectQuery(given: FinalizedQuery) {
 }
 
 export function assertType<T>(value: T) {}
+
+// rome-ignore lint/suspicious/noExplicitAny: <explanation>
+export function getResolvedType<T extends (...args: any) => any>(
+	fn: T,
+): Awaited<ReturnType<T>> {
+	// rome-ignore lint/suspicious/noExplicitAny: <explanation>
+	return null as any;
+}

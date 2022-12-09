@@ -5,7 +5,7 @@ import {
 	createSelectBuilder,
 	createJoinBuilder,
 } from "..";
-import { assertType, expectQuery } from "./util";
+import { assertType, expectQuery, getResolvedType } from "./util";
 
 class User extends Entity({ schema: "app", tableName: "user" }) {
 	@Column({ type: 'uuid' })
@@ -78,16 +78,17 @@ describe("QueryBuilder", () => {
 				user: { id: string; name: string };
 				organization: { name: string };
 			} | null>(
-				await createJoinBuilder()
-					.from(User, "user")
-					.innerJoin(
-						Organization,
-						"organization",
-						sql`organization.id = any(user.organization_ids)`,
-					)
-					.select("user", ["id", "name"])
-					.select("organization", ["name"])
-					.getOne(),
+				getResolvedType(
+					createJoinBuilder()
+						.from(User, "user")
+						.innerJoin(
+							Organization,
+							"organization",
+							sql`organization.id = any(user.organization_ids)`,
+						)
+						.select("user", ["id", "name"])
+						.select("organization", ["name"]).getOne,
+				),
 			);
 			assertType<
 				{
@@ -95,16 +96,17 @@ describe("QueryBuilder", () => {
 					organization: { name: string };
 				}[]
 			>(
-				await createJoinBuilder()
-					.from(User, "user")
-					.innerJoin(
-						Organization,
-						"organization",
-						sql`organization.id = any(user.organization_ids)`,
-					)
-					.select("user", ["id", "name"])
-					.select("organization", ["name"])
-					.getMany(),
+				getResolvedType(
+					createJoinBuilder()
+						.from(User, "user")
+						.innerJoin(
+							Organization,
+							"organization",
+							sql`organization.id = any(user.organization_ids)`,
+						)
+						.select("user", ["id", "name"])
+						.select("organization", ["name"]).getMany,
+				),
 			);
 		});
 		it("should build results correctly", async () => {

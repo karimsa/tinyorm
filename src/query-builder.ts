@@ -7,11 +7,76 @@ import {
 	PreparedQuery,
 } from "./queries";
 import { assertCase, getEntityRef } from "./utils";
+import { Pool as PostgresClientPool, PoolClient as PostgresClient } from "pg";
 
-class QueryBuilder<Shape extends object, ResultShape> {
+export class QueryError extends Error {
+	constructor(
+		message: string,
+		private readonly query: FinalizedQuery,
+		private readonly internalError: unknown,
+	) {
+		super(message);
+	}
+}
+
+abstract class BaseQueryBuilder<ResultShape> {
+	abstract buildOne(row: unknown): ResultShape | null;
+	abstract buildMany(rows: unknown[]): ResultShape[];
+	abstract getQuery(): FinalizedQuery;
+
+	private async executeQuery(client: PostgresClient, query: FinalizedQuery) {
+		try {
+			const { rows } = await client.query(query);
+			return rows;
+		} catch (err: unknown) {
+			throw new QueryError(
+				err instanceof Error ? String(err.message) : "Query failed",
+				query,
+				err,
+			);
+		}
+	}
+
+	async getOne(pool: PostgresClientPool): Promise<ResultShape | null> {
+		const client = await pool.connect();
+
+		const query = this.getQuery();
+		query.text += " LIMIT 1";
+
+		const rows = await this.executeQuery(client, query);
+		client.release();
+		return this.buildOne(rows[0]);
+	}
+
+	async getOneOrFail(pool: PostgresClientPool): Promise<ResultShape> {
+		const result = await this.getOne(pool);
+		if (!result) {
+			throw new Error("Failed to find any results to query");
+		}
+		return result;
+	}
+
+	async getMany(pool: PostgresClientPool): Promise<ResultShape[]> {
+		const client = await pool.connect();
+
+		const query = this.getQuery();
+		query.text += " LIMIT 1";
+
+		const rows = await this.executeQuery(client, query);
+		client.release();
+		return this.buildMany(rows);
+	}
+}
+
+class QueryBuilder<
+	Shape extends object,
+	ResultShape,
+> extends BaseQueryBuilder<ResultShape> {
 	private readonly selectedFields: string[] = [];
 
-	constructor(readonly targetFromEntity: EntityFromShape<Shape>) {}
+	constructor(readonly targetFromEntity: EntityFromShape<Shape>) {
+		super();
+	}
 
 	select<Keys extends string & keyof Shape>(
 		keys: Keys[],
@@ -56,16 +121,43 @@ class QueryBuilder<Shape extends object, ResultShape> {
 			.filter((row): row is ResultShape => !!row);
 	}
 
-	async getOne(): Promise<ResultShape | null> {
-		return null;
+	async getOne(pool: PostgresClientPool): Promise<ResultShape | null> {
+		const client = await pool.connect();
+
+		const query = this.getQuery();
+		query.text += " LIMIT 1";
+
+		const { rows } = await client.query(query);
+		client.release();
+		return this.buildOne(rows[0]);
 	}
 
-	async getMany(): Promise<ResultShape[]> {
-		return [];
+	async getOneOrFail(pool: PostgresClientPool): Promise<ResultShape> {
+		const result = await this.getOne(pool);
+		if (!result) {
+			throw new Error("Failed to find any results to query");
+		}
+		return result;
+	}
+
+	async getMany(pool: PostgresClientPool): Promise<ResultShape[]> {
+		const client = await pool.connect();
+
+		const query = this.getQuery();
+		query.text += " LIMIT 1";
+
+		const { rows } = await client.query(query);
+		return this.buildMany(rows);
 	}
 }
 
-class JoinedQueryBuilder<Shapes extends Record<string, object>, ResultShape> {
+type EntityAlias<Alias, Shapes extends Record<string, object>> = Alias &
+	(Alias extends keyof Shapes ? never : {});
+
+class JoinedQueryBuilder<
+	Shapes extends Record<string, object>,
+	ResultShape,
+> extends BaseQueryBuilder<ResultShape> {
 	readonly selectedFields = new Map<string, string[]>();
 	readonly joins: PreparedQuery[] = [];
 	readonly includedEntites = new Map<string, EntityFromShape<unknown>>();
@@ -73,11 +165,13 @@ class JoinedQueryBuilder<Shapes extends Record<string, object>, ResultShape> {
 	constructor(
 		readonly targetFromEntity: EntityFromShape<unknown>,
 		readonly targetEntityAlias: string,
-	) {}
+	) {
+		super();
+	}
 
 	innerJoin<Alias extends string, JoinedShape>(
 		joinedEntity: EntityFromShape<JoinedShape>,
-		alias: Alias,
+		alias: EntityAlias<Alias, Shapes>,
 		condition: PreparedQuery,
 	): JoinedQueryBuilder<Shapes & { [key in Alias]: JoinedShape }, ResultShape> {
 		assertCase("join alias", alias);
@@ -178,14 +272,6 @@ class JoinedQueryBuilder<Shapes extends Record<string, object>, ResultShape> {
 		return rows
 			.map((row) => this.buildOne(row))
 			.filter((row): row is ResultShape => !!row);
-	}
-
-	async getOne(): Promise<ResultShape | null> {
-		return null;
-	}
-
-	async getMany(): Promise<ResultShape[]> {
-		return [];
 	}
 }
 
