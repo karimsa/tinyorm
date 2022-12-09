@@ -20,3 +20,5 @@ export const getEntityRef = (
 	}
 	return `${entity.schema}.${entity.tableName}`;
 };
+
+export function assertType<T>(value: T) {}

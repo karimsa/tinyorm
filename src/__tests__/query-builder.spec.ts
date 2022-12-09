@@ -5,11 +5,14 @@ import {
 	createSelectBuilder,
 	createJoinBuilder,
 } from "..";
-import { assertType, expectQuery, getResolvedType } from "./util";
+import { expectQuery, getResolvedType } from "./util";
+import { assertType } from "../utils";
 
 class User extends Entity({ schema: "app", tableName: "user" }) {
 	@Column({ type: 'uuid' })
 	readonly id: string;
+	@Column({ type: 'uuid' })
+	readonly status: "Active" | "Inactive";
 	@Column({ type: 'text' })
 	readonly name: string;
 	@Column({ type: 'uuid[]' })
@@ -72,6 +75,34 @@ describe("QueryBuilder", () => {
 					INNER JOIN app.organization AS organization ON organization.id = any(user.organization_ids)
 				`,
 				values: [],
+			});
+			expectQuery(
+				createJoinBuilder()
+					.from(User, "user")
+					.innerJoin(
+						Organization,
+						"organization",
+						sql`organization.id = any(user.organization_ids)`,
+					)
+					.select("user", ["id", "name"])
+					.select("organization", ["name"])
+					.andWhere("user", (where) =>
+						where("name")
+							.Like("%Karim%")
+							.orWhere("status")
+							.EqualsAny(["Active"]),
+					)
+					.getQuery(),
+			).toEqual({
+				text: `
+					SELECT
+						user.id AS user_id, user.name AS user_name,
+						organization.name AS organization_name
+					FROM app.user AS user
+					INNER JOIN app.organization AS organization ON organization.id = any(user.organization_ids)
+					WHERE user.name LIKE $1::text OR user.status = ANY($2::text[] )
+				`,
+				values: ["%Karim%", ["Active"]],
 			});
 
 			assertType<{

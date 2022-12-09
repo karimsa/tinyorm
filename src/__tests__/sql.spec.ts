@@ -83,4 +83,38 @@ describe("sql", () => {
 			values: ["2022-01-01"],
 		});
 	});
+	it("should allow unescaping parameters", async () => {
+		expectQuery(
+			finalizeQuery(sql`
+				SELECT *
+				FROM foo
+				WHERE created_at >= ${sql.asUnescaped("true")}
+			`),
+		).toEqual({
+			text: "SELECT * FROM foo WHERE created_at >= true",
+			values: [],
+		});
+		expectQuery(
+			finalizeQuery(sql`
+				SELECT *
+				FROM foo
+				WHERE created_at >= ${sql.asUnescaped("'testing'")}
+			`),
+		).toEqual({
+			text: "SELECT * FROM foo WHERE created_at >= 'testing'",
+			values: [],
+		});
+		expectQuery(
+			finalizeQuery(sql`
+				SELECT *
+				FROM foo
+				WHERE created_at >= ${sql.asUnescaped(
+					`'${new Date("2022-01-01T20:47:18.789Z").toISOString()}'`,
+				)}
+			`),
+		).toEqual({
+			text: "SELECT * FROM foo WHERE created_at >= '2022-01-01T20:47:18.789Z'",
+			values: [],
+		});
+	});
 });

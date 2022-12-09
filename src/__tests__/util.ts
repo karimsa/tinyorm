@@ -6,12 +6,13 @@ export function expectQuery(given: FinalizedQuery) {
 			expect(given.text.trim().replace(/\s+/g, " ")).toEqual(
 				expected.text.trim().replace(/\s+/g, " "),
 			);
-			expect(given.values).toEqual(expected.values);
+			expect(given).toMatchObject({
+				text: given.text,
+				values: expected.values,
+			});
 		},
 	};
 }
-
-export function assertType<T>(value: T) {}
 
 // rome-ignore lint/suspicious/noExplicitAny: <explanation>
 export function getResolvedType<T extends (...args: any) => any>(

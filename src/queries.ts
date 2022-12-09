@@ -1,8 +1,13 @@
-type PostgresValueType = string | number | boolean | Date | null | undefined;
+export type PostgresSimpleValueType = string | number | boolean | Date;
+
+export type PostgresValueType =
+	| PostgresSimpleValueType
+	| (PostgresSimpleValueType | null)[]
+	| null;
 
 export interface PreparedQuery {
 	text: string[];
-	params: QueryVariable[];
+	params: (QueryVariable | UnescapedVariable)[];
 }
 
 export interface FinalizedQuery {
@@ -10,45 +15,106 @@ export interface FinalizedQuery {
 	values: PostgresValueType[];
 }
 
-interface QueryVariable {
-	type: string | null;
-	value: PostgresValueType;
-}
+const kUnescapedVariable = Symbol("unescapedVariable");
+
+type UnescapedVariable = {
+	type: typeof kUnescapedVariable;
+	value: string;
+};
+
+type QueryVariable =
+	| {
+			type: string;
+			isArray: false;
+			value: PostgresSimpleValueType | null;
+	  }
+	| {
+			type: string;
+			isArray: true;
+			value: (PostgresSimpleValueType | null)[];
+	  };
 
 // rome-ignore lint/suspicious/noExplicitAny: <explanation>
 function isQueryVariable(variable: any): variable is QueryVariable {
 	return (
 		typeof variable === "object" &&
 		variable !== null &&
-		typeof variable.type === "string" &&
+		(typeof variable.type === "string" ||
+			variable.type === null ||
+			variable.type === kUnescapedVariable) &&
 		{}.hasOwnProperty.call(variable, "value")
 	);
 }
 
-function getPgTypeOf(value: PostgresValueType) {
+// rome-ignore lint/suspicious/noExplicitAny: <explanation>
+function isUnescapedVariable(variable: any): variable is UnescapedVariable {
+	return (
+		typeof variable === "object" &&
+		variable !== null &&
+		variable.type === kUnescapedVariable &&
+		{}.hasOwnProperty.call(variable, "value")
+	);
+}
+
+export class UnknownQueryParameterTypeError extends Error {
+	constructor(message: string, private readonly value: unknown) {
+		super(message);
+	}
+}
+
+function getPgTypeOf(
+	value: PostgresValueType,
+): Pick<QueryVariable, "isArray" | "type"> {
+	if (Array.isArray(value)) {
+		const firstValue = value.find((v) => v !== null);
+		if (!firstValue) {
+			throw new Error(
+				`Failed to find type for array: ${JSON.stringify(
+					value,
+				)} (use a typecast helper)`,
+			);
+		}
+
+		const typeGuess = getPgTypeOf(firstValue);
+		if (!typeGuess) {
+			throw new Error(
+				`Failed to find type for array: ${JSON.stringify(
+					value,
+				)} (use a typecast helper)`,
+			);
+		}
+
+		return { ...typeGuess, isArray: true };
+	}
+
 	switch (typeof value) {
 		case "string":
-			return "text";
+			return { type: "text", isArray: false };
 		case "number":
-			return "double precision";
+			return { type: "double precision", isArray: false };
 		case "boolean":
-			return "boolean";
+			return { type: "boolean", isArray: false };
 	}
 
 	if (value instanceof Date) {
-		return "timestamp";
+		return { type: "timestamp", isArray: false };
 	}
 
+	if (value == null) {
+		return { type: "null", isArray: false };
+	}
+
+	throw new UnknownQueryParameterTypeError(
+		`Failed to find type for value: ${value} (use a typecast helper)`,
+		value,
+	);
+}
+
+function getPgValueOf({ type, value }: QueryVariable & { isArray: false }) {
 	if (value == null) {
 		return null;
 	}
 
-	throw new Error(
-		`Failed to find type for value: ${value} (use a typecast helper)`,
-	);
-}
-
-function getPgValueOf(type: string | null, value: unknown) {
 	switch (type) {
 		case "integer":
 		case "double precision":
@@ -91,26 +157,45 @@ function getPgValueOf(type: string | null, value: unknown) {
 					value,
 				},
 			);
-		case null:
-			return null;
 
 		default:
-			throw new Error(`Unsupported postgres type: '${type}'`);
+			throw new Error(`Unsupported postgres type: '${String(type)}'`);
 	}
 }
 
-function getQueryVariable(
+export function getQueryVariable(
 	variable: PostgresValueType | QueryVariable,
-	typeHint?: string,
+	typeHint?: QueryVariable["type"],
 ): QueryVariable {
 	if (isQueryVariable(variable)) {
 		return variable;
 	}
 
-	const pgType = typeHint ?? getPgTypeOf(variable);
+	const pgType = typeHint
+		? { type: typeHint, isArray: false }
+		: getPgTypeOf(variable);
+	if (pgType.isArray) {
+		if (!Array.isArray(variable)) {
+			throw new Error("Unexpected state reached");
+		}
+		return {
+			type: pgType.type,
+			isArray: true,
+			value: variable.map((v) =>
+				v == null
+					? null
+					: getPgValueOf({ type: pgType.type, value: v, isArray: false }),
+			),
+		};
+	}
+
+	if (Array.isArray(variable)) {
+		throw new Error("Unexpected state reached");
+	}
 	return {
-		type: pgType,
-		value: getPgValueOf(pgType, variable),
+		type: pgType.type,
+		isArray: false,
+		value: getPgValueOf({ type: pgType.type, value: variable, isArray: false }),
 	};
 }
 
@@ -118,10 +203,37 @@ function leftPaddedInt(num: number) {
 	return num < 10 ? `0${num}` : `${num}`;
 }
 
+export function castValue(
+	name: string,
+	queryVar: Exclude<QueryVariable, UnescapedVariable>,
+) {
+	const typeCast = queryVar.type === "null" ? "" : `::${queryVar.type}`;
+	const arraySuffix = queryVar.isArray ? "[]" : "";
+	return `${name}${typeCast}${arraySuffix}`;
+}
+
+const typeCastHelpers = {
+	// Casts
+	asUnescaped: (value: string): UnescapedVariable => ({
+		type: kUnescapedVariable,
+		value,
+	}),
+	asText: (value: string | number | boolean) => getQueryVariable(value, "text"),
+	asBool: (value: unknown) => getQueryVariable(!!value, "boolean"),
+	asDate: (date: Date): QueryVariable => getQueryVariable(date, "date"),
+	asTimestamp: (date: Date): QueryVariable =>
+		getQueryVariable(date, "timestamp"),
+};
+
 export const sql = Object.assign(
 	(
 		templateStrings: TemplateStringsArray,
-		...parameters: (PostgresValueType | QueryVariable)[]
+		...parameters: (
+			| PostgresValueType
+			| QueryVariable
+			| UnescapedVariable
+			| undefined
+		)[]
 	): PreparedQuery => {
 		const preparedQuery: PreparedQuery = {
 			text: [templateStrings[0]],
@@ -129,10 +241,15 @@ export const sql = Object.assign(
 		};
 
 		for (const [index, param] of parameters.entries()) {
-			const queryVar = getQueryVariable(param);
+			if (isUnescapedVariable(param)) {
+				preparedQuery.text.push(templateStrings[index + 1]);
+				preparedQuery.params.push(param);
+			} else {
+				const queryVar = getQueryVariable(param ?? null);
 
-			preparedQuery.text.push(templateStrings[index + 1]);
-			preparedQuery.params.push(queryVar);
+				preparedQuery.text.push(templateStrings[index + 1]);
+				preparedQuery.params.push(queryVar);
+			}
 		}
 
 		return {
@@ -141,12 +258,7 @@ export const sql = Object.assign(
 		};
 	},
 	{
-		asText: (value: string | number | boolean) =>
-			getQueryVariable(value, "text"),
-		asBool: (value: unknown) => getQueryVariable(!!value, "boolean"),
-		asDate: (date: Date): QueryVariable => getQueryVariable(date, "date"),
-		asTimestamp: (date: Date): QueryVariable =>
-			getQueryVariable(date, "timestamp"),
+		...typeCastHelpers,
 	},
 );
 
@@ -157,10 +269,15 @@ export function finalizeQuery(query: PreparedQuery): FinalizedQuery {
 		values: [],
 	};
 	for (const [index, queryVar] of query.params.entries()) {
-		const typeCast = queryVar.type === null ? "" : `::${queryVar.type}`;
-
-		finalizedQuery.text += `$${index + 1}${typeCast}${query.text[index + 1]}`;
-		finalizedQuery.values.push(queryVar.value);
+		if (isUnescapedVariable(queryVar)) {
+			finalizedQuery.text += `${queryVar.value} ${query.text[index + 1]}`;
+		} else {
+			finalizedQuery.text += `${castValue(
+				`$${finalizedQuery.values.length + 1}`,
+				queryVar,
+			)} ${query.text[index + 1]}`;
+			finalizedQuery.values.push(queryVar.value);
+		}
 	}
 	return finalizedQuery;
 }
