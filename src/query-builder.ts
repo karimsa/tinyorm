@@ -12,10 +12,12 @@ import { assertCase } from "./utils";
 import { Pool as PostgresClientPool, PoolClient as PostgresClient } from "pg";
 import {
 	AndWhereQueryBuilder,
+	createWhereBuilder,
 	InternalWhereBuilder,
 	OrWhereQueryBuilder,
 	WhereQueryBuilder,
 } from "./where-builder";
+import { ZodSchema } from "zod";
 
 export class QueryError extends Error {
 	constructor(
@@ -141,9 +143,13 @@ class JoinedQueryBuilder<
 	ResultShape,
 > extends BaseQueryBuilder<ResultShape> {
 	readonly #selectedFields = new Map<string, string[]>();
+	readonly #selectedComputedFields = new Map<
+		string,
+		{ query: PreparedQuery; schema: ZodSchema<unknown> }
+	>();
 	readonly #joins: PreparedQuery[] = [];
-	readonly #conditions: PreparedQuery[] = [];
 	readonly #includedEntites = new Map<string, EntityFromShape<unknown>>();
+	#whereBuilder: InternalWhereBuilder<Shapes> | null = null;
 
 	constructor(
 		readonly targetFromEntity: EntityFromShape<unknown>,
@@ -197,6 +203,18 @@ class JoinedQueryBuilder<
 		>;
 	}
 
+	selectRaw<Alias extends string, T extends PostgresValueType>(
+		query: PreparedQuery,
+		alias: EntityAlias<Alias, Shapes>,
+		schema: ZodSchema<T>,
+	) {
+		this.#selectedComputedFields.set(alias, { query, schema });
+		return this as unknown as JoinedQueryBuilder<
+			Shapes,
+			ResultShape & { [key in Alias]: T }
+		>;
+	}
+
 	#getSelectedFields() {
 		const selectedFields: string[] = [];
 		for (const [entityName, fields] of this.#selectedFields.entries()) {
@@ -209,25 +227,28 @@ class JoinedQueryBuilder<
 		return selectedFields;
 	}
 
+	#getSelectedComputedFields() {
+		const selectedFieldQueries: PreparedQuery[] = [];
+		for (const [alias, { query }] of this.#selectedComputedFields.entries()) {
+			selectedFieldQueries.push({
+				...query,
+				text: [
+					...query.text.slice(0, query.text.length - 1),
+					`${query.text[query.text.length - 1]} AS "${alias}"`,
+				],
+			});
+		}
+		return selectedFieldQueries;
+	}
+
 	where(
 		whereBuilder: (
 			where: WhereQueryBuilder<Shapes>,
 		) => AndWhereQueryBuilder<Shapes> | OrWhereQueryBuilder<Shapes>,
 	) {
-		const builder = whereBuilder(
-			new InternalWhereBuilder<Shapes>(this.#includedEntites).getBuilder(),
+		this.#whereBuilder = whereBuilder(
+			createWhereBuilder(this.#includedEntites),
 		) as unknown as InternalWhereBuilder<Shapes>;
-
-		const query = builder.getQuery();
-		if (this.#conditions.length === 0) {
-			this.#conditions.push({
-				...query,
-				text: [`\nWHERE ${query.text[0]}`, ...query.text.slice(1)],
-			});
-		} else {
-			this.#conditions.push(query);
-		}
-
 		return this as unknown as Omit<
 			JoinedQueryBuilder<Shapes, ResultShape>,
 			"where"
@@ -239,18 +260,27 @@ class JoinedQueryBuilder<
 			joinAllQueries([
 				{
 					text: [
-						`
-							SELECT ${this.#getSelectedFields().join(", ")}
-							FROM ${
-								sql.getEntityRef(this.targetFromEntity, this.targetEntityAlias)
-									.value
-							}
-						`,
+						` SELECT ${[
+							...this.#getSelectedFields(),
+
+							// Insert a trailing comma if computed fields will follow
+							...(this.#selectedComputedFields.size === 0 ? [] : [""]),
+						].join(", ")} `,
+					],
+					params: [],
+				},
+				...this.#getSelectedComputedFields(),
+				{
+					text: [
+						` FROM ${
+							sql.getEntityRef(this.targetFromEntity, this.targetEntityAlias)
+								.value
+						} `,
 					],
 					params: [],
 				},
 				...this.#joins,
-				...this.#conditions,
+				...(this.#whereBuilder ? [this.#whereBuilder.getQuery()] : []),
 			]),
 		);
 	}
@@ -263,16 +293,36 @@ class JoinedQueryBuilder<
 			throw new Error("Unexpected row received in query result");
 		}
 
-		const resultBuilder: Record<string, Record<string, unknown>> = {};
+		const resultBuilder: Record<string, unknown> = {};
 		const castedRow = row as unknown as Record<string, unknown>;
 
 		for (const [entityName, fields] of this.#selectedFields.entries()) {
-			resultBuilder[entityName] = {};
+			const subEntityResult = (resultBuilder[entityName] = {}) as Record<
+				string,
+				unknown
+			>;
 
 			for (const field of fields) {
 				const value = castedRow[`${entityName}_${field}`];
-				resultBuilder[entityName][field] = value;
+				subEntityResult[field] = value;
 			}
+		}
+
+		for (const [
+			alias,
+			{ query, schema },
+		] of this.#selectedComputedFields.entries()) {
+			const retrievedValue = castedRow[alias];
+			const parseResult = schema.safeParse(retrievedValue);
+			if (!parseResult.success) {
+				throw new Error(
+					`Query returned invalid value in column '${alias}' retreived by '${
+						query.text
+					}': ${parseResult.error.format()._errors[0] ?? "incorrect type"}`,
+				);
+			}
+
+			resultBuilder[alias] = parseResult.data;
 		}
 
 		return resultBuilder as unknown as ResultShape;
