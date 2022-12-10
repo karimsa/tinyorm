@@ -257,13 +257,28 @@ class JoinedQueryBuilder<
 		return this;
 	}
 
+	addOrderBy<Alias extends string & keyof ResultShape>(
+		alias: Alias,
+		direction: "ASC" | "DESC",
+	): typeof this;
 	addOrderBy<
 		Alias extends string & keyof Shapes,
 		Column extends string & keyof Shapes[Alias],
-	>(alias: Alias, column: Column, direction: "ASC" | "DESC" = "ASC") {
-		this.#orderByValues.push(
-			sql.unescaped(`"${alias}"."${column}" ${direction}`),
-		);
+	>(alias: Alias, column: Column, direction: "ASC" | "DESC"): typeof this;
+	addOrderBy(
+		alias: string,
+		columnOrDirection: string,
+		direction?: "ASC" | "DESC",
+	) {
+		if (direction) {
+			this.#orderByValues.push(
+				sql.unescaped(`"${alias}"."${columnOrDirection}" ${direction}`),
+			);
+		} else {
+			this.#orderByValues.push(
+				sql.unescaped(`"${alias}" ${columnOrDirection}`),
+			);
+		}
 		return this;
 	}
 
@@ -277,7 +292,7 @@ class JoinedQueryBuilder<
 				index === self.length - 1 ? query : sql.suffixQuery(query, ", "),
 			),
 		);
-		return sql.wrapQuery(` ORDER BY (`, query, `)`);
+		return sql.prefixQuery(` ORDER BY `, query);
 	}
 
 	addRawGroupBy(query: PreparedQuery) {

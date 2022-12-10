@@ -254,8 +254,9 @@ describe("QueryBuilder", () => {
 				.selectRaw(sql`count(distinct user_post.post_id)`, "test", z.number())
 				.where((where) => where("user", "name").Equals("Karim"))
 				.addGroupBy("user", "id")
-				.addOrderBy("user", "id")
-				.addRawOrderBy(sql`test`);
+				.addOrderBy("user", "id", "ASC")
+				.addOrderBy("test", "DESC")
+				.addRawOrderBy(sql`foo DESC`);
 
 			assertType<{ user: { id: string }; test: number } | null>(
 				getResolvedType(qb.getOne),
@@ -276,7 +277,7 @@ describe("QueryBuilder", () => {
 					INNER JOIN "app"."user_post" AS "user_post" ON "user_post".user_id = "user".id
 					WHERE ("user"."name" = $1::text )
 					GROUP BY ("user"."id")
-					ORDER BY ("user"."id" ASC, test)
+					ORDER BY "user"."id" ASC, "test" DESC, foo DESC
 				`,
 				values: ["Karim"],
 			});
