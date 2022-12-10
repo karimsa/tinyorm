@@ -61,6 +61,9 @@ export type WhereQueryComparators<T, NextQueryBuilder> =
 		JsonProperty<Key extends string & keyof T>(
 			key: Key,
 		): WhereQueryComparators<object, NextQueryBuilder>;
+		JsonPath<Path extends JsonKeys<T extends object ? T : never>>(
+			jsonPath: Path,
+		): WhereQueryComparators<object, NextQueryBuilder>;
 		JsonContains(subObject: string | Partial<T>): NextQueryBuilder;
 	};
 
@@ -86,7 +89,7 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 	getBuilder() {
 		const openWhere = <
 			Alias extends string & keyof Shapes,
-			Key extends JsonKeys<Shapes[Alias]>,
+			Key extends string & keyof Shapes[Alias],
 		>(
 			entityName: Alias,
 			field: Key,
@@ -170,14 +173,6 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 	}
 
 	#getColumnName(alias: string, field: string) {
-		if (field.includes(".")) {
-			const jsonPath = field
-				.split(".")
-				.map((key) => `"${key}"`)
-				.join("->");
-
-			return sql.asUnescaped(`"${alias}".${jsonPath}`);
-		}
 		return sql.asUnescaped(`"${alias}"."${field}"`);
 	}
 
@@ -206,6 +201,11 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 				this.#appendQuery(sql`${getColumnName()} NOT LIKE ${value}`),
 			JsonProperty: (subProperty: string) =>
 				this.#openBaseComparator(column, [...jsonProperties, subProperty]),
+			JsonPath: (keyPath: string) =>
+				this.#openBaseComparator(column, [
+					...jsonProperties,
+					...keyPath.split("."),
+				]),
 			JsonContains: (subObject: string | object) =>
 				this.#appendQuery(
 					sql`${getColumnName()} @> ${sql.asJSONB(

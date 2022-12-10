@@ -89,7 +89,8 @@ describe("WhereBuilder", () => {
 		// Check nested JSON field value
 		expectQuery(
 			finalizeQuery(
-				where("post", "content.nestedObject.hello")
+				where("post", "content")
+					.JsonPath("nestedObject.hello")
 					.CastAs("text")
 					.Equals("world")
 					.getQuery(),
@@ -102,7 +103,8 @@ describe("WhereBuilder", () => {
 		});
 		expectQuery(
 			finalizeQuery(
-				where("post", "content.nestedObject.isBool")
+				where("post", "content")
+					.JsonPath("nestedObject.isBool")
 					.CastAs("boolean")
 					.Equals(true)
 					.getQuery(),
@@ -117,7 +119,8 @@ describe("WhereBuilder", () => {
 		// Sub-object checks
 		expectQuery(
 			finalizeQuery(
-				where("post", `content.nestedObject`)
+				where("post", `content`)
+					.JsonPath("nestedObject")
 					.JsonContains({ isBool: true })
 					.getQuery(),
 			),
