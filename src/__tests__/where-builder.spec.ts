@@ -73,11 +73,15 @@ describe("WhereBuilder", () => {
 		// Check top-level JSON field value
 		expectQuery(
 			finalizeQuery(
-				where("post", "content").JsonProperty("type").Equals("text").getQuery(),
+				where("post", "content")
+					.JsonProperty("type")
+					.CastAs("text")
+					.Equals("text")
+					.getQuery(),
 			),
 		).toEqual({
 			text: `
-                WHERE "post"."content"->>"type" = $1::text
+                WHERE ("post"."content"->"type")::text = $1::text
             `,
 			values: ["text"],
 		});
@@ -85,30 +89,27 @@ describe("WhereBuilder", () => {
 		// Check nested JSON field value
 		expectQuery(
 			finalizeQuery(
-				where("post", "content")
-					.JsonProperty("nestedObject")
-					.JsonProperty("hello")
+				where("post", "content.nestedObject.hello")
+					.CastAs("text")
 					.Equals("world")
 					.getQuery(),
 			),
 		).toEqual({
 			text: `
-                WHERE "post"."content"->"nestedObject"->>"hello" = $1::text
+                WHERE ("post"."content"->"nestedObject"->"hello")::text = $1::text
             `,
 			values: ["world"],
 		});
 		expectQuery(
 			finalizeQuery(
-				where("post", "content")
-					.JsonProperty("nestedObject")
-					.JsonProperty("isBool")
+				where("post", "content.nestedObject.isBool")
 					.CastAs("boolean")
 					.Equals(true)
 					.getQuery(),
 			),
 		).toEqual({
 			text: `
-                WHERE ("post"."content"->"nestedObject"->>"isBool")::boolean = $1::boolean
+                WHERE ("post"."content"->"nestedObject"->"isBool")::text::boolean = $1::boolean
             `,
 			values: [true],
 		});
@@ -116,8 +117,7 @@ describe("WhereBuilder", () => {
 		// Sub-object checks
 		expectQuery(
 			finalizeQuery(
-				where("post", "content")
-					.JsonProperty("nestedObject")
+				where("post", `content.nestedObject`)
 					.JsonContains({ isBool: true })
 					.getQuery(),
 			),

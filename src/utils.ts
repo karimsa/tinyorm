@@ -11,3 +11,7 @@ export const assertCase = (name: string, value: string) => {
 };
 
 export function assertType<T>(value: T) {}
+
+export function isElementOfArray(elm: unknown, list: readonly unknown[]) {
+	return list.includes(elm);
+}

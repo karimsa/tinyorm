@@ -7,6 +7,53 @@ export type PostgresValueType =
 	| (PostgresSimpleValueType | null)[]
 	| null;
 
+export const PostgresBooleanColumnTypes = ["bool", "boolean"] as const;
+export type PostgresBooleanColumnType =
+	typeof PostgresBooleanColumnTypes[number];
+
+export const PostgresNumericColumnTypes = [
+	"int",
+	"int2",
+	"int4",
+	"int8",
+	"smallint",
+	"integer",
+	"bigint",
+	"decimal",
+	"numeric",
+	"real",
+	"float",
+	"float4",
+	"float8",
+	"double precision",
+] as const;
+export type PostgresNumericColumnType =
+	typeof PostgresNumericColumnTypes[number];
+
+export const PostgresStringColumnTypes = [
+	"character varying",
+	"varchar",
+	"character",
+	"char",
+	"text",
+	"citext",
+	"enum",
+] as const;
+export type PostgresStringColumnType = typeof PostgresStringColumnTypes[number];
+
+export const PostgresDateColumnTypes = [
+	"timetz",
+	"timestamptz",
+	"timestamp",
+	"timestamp without time zone",
+	"timestamp with time zone",
+	"date",
+	"time",
+	"time without time zone",
+	"time with time zone",
+] as const;
+export type PostgresDateColumnType = typeof PostgresDateColumnTypes[number];
+
 export interface PreparedQuery {
 	text: string[];
 	params: (QueryVariable | UnescapedVariable)[];

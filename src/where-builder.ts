@@ -4,16 +4,47 @@ import {
 	PostgresValueType,
 	sql,
 	joinAllQueries,
-	finalizeQuery,
 	PostgresSimpleValueType,
+	PostgresNumericColumnType,
+	PostgresStringColumnType,
+	PostgresBooleanColumnType,
+	PostgresDateColumnType,
+	PostgresStringColumnTypes,
 } from "./queries";
-import { assertType, assertTypeExtends } from "./utils";
+import { isElementOfArray } from "./utils";
+
+type JsonKeys<Shape extends object> = {
+	[K in keyof Shape]: K extends string
+		? Shape[K] extends
+				| Exclude<PostgresSimpleValueType, object>
+				| unknown[]
+				| null
+			? K
+			: Shape[K] extends object
+			? K | `${K}.${JsonKeys<Shape[K]>}`
+			: never
+		: never;
+}[keyof Shape];
 
 type BaseWhereQueryComparators<T, NextQueryBuilder> = {
 	// Misc
 	Equals(value: T): NextQueryBuilder;
 	NotEquals(value: T): NextQueryBuilder;
-	CastAs(castedType: string): WhereQueryComparators<T, NextQueryBuilder>;
+
+	// Cast helpers
+	CastAs(
+		castedType: PostgresBooleanColumnType,
+	): WhereQueryComparators<boolean, NextQueryBuilder>;
+	CastAs(
+		castedType: PostgresNumericColumnType,
+	): WhereQueryComparators<boolean, NextQueryBuilder>;
+	CastAs(
+		castedType: PostgresStringColumnType,
+	): WhereQueryComparators<string, NextQueryBuilder>;
+	CastAs(
+		castedType: PostgresDateColumnType,
+	): WhereQueryComparators<Date, NextQueryBuilder>;
+	CastAs(castedType: string): WhereQueryComparators<unknown, NextQueryBuilder>;
 
 	// Array
 	EqualsAny(values: T[]): NextQueryBuilder;
@@ -29,7 +60,7 @@ export type WhereQueryComparators<T, NextQueryBuilder> =
 		// JSONB
 		JsonProperty<Key extends string & keyof T>(
 			key: Key,
-		): WhereQueryComparators<T[Key], NextQueryBuilder>;
+		): WhereQueryComparators<object, NextQueryBuilder>;
 		JsonContains(subObject: string | Partial<T>): NextQueryBuilder;
 	};
 
@@ -55,18 +86,21 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 	getBuilder() {
 		const openWhere = <
 			Alias extends string & keyof Shapes,
-			Key extends string & keyof Shapes[Alias],
+			Key extends JsonKeys<Shapes[Alias]>,
 		>(
 			entityName: Alias,
 			field: Key,
-		): WhereQueryComparators<
-			Shapes[Alias][Key],
-			AndWhereQueryBuilder<Shapes> & OrWhereQueryBuilder<Shapes>
-		> => {
+		) => {
 			if (this.#binaryOperator || this.#queries.length > 0) {
 				throw new Error("Cannot re-open where builder");
 			}
-			return this.#openComparator(entityName, field);
+			return this.#openComparator(
+				entityName,
+				field,
+			) as unknown as WhereQueryComparators<
+				Key extends string & keyof Shapes[Alias] ? Shapes[Alias][Key] : object,
+				AndWhereQueryBuilder<Shapes> & OrWhereQueryBuilder<Shapes>
+			>;
 		};
 
 		return Object.assign(openWhere, {
@@ -136,23 +170,26 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 	}
 
 	#getColumnName(alias: string, field: string) {
+		if (field.includes(".")) {
+			const jsonPath = field
+				.split(".")
+				.map((key) => `"${key}"`)
+				.join("->");
+
+			return sql.asUnescaped(`"${alias}".${jsonPath}`);
+		}
 		return sql.asUnescaped(`"${alias}"."${field}"`);
 	}
 
 	#openBaseComparator(column: string, jsonProperties: string[] = []) {
-		const getColumnName = (castJsonAsString: boolean = true) =>
-			sql.asUnescaped(
-				jsonProperties.length === 0
-					? column
-					: `${column}${jsonProperties
-							.flatMap((property, index) => [
-								index === jsonProperties.length - 1 && castJsonAsString
-									? `->>`
-									: `->`,
-								`"${property}"`,
-							])
-							.join("")}`,
+		const getColumnName = () => {
+			if (column.includes("->") || jsonProperties.length === 0) {
+				return sql.asUnescaped(column);
+			}
+			return sql.asUnescaped(
+				`${column}->${jsonProperties.map((key) => `"${key}"`).join("->")}`,
 			);
+		};
 		const comparators: WhereQueryComparators<
 			PostgresValueType,
 			AndWhereQueryBuilder<Shapes> & OrWhereQueryBuilder<Shapes>
@@ -171,22 +208,33 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 				this.#openBaseComparator(column, [...jsonProperties, subProperty]),
 			JsonContains: (subObject: string | object) =>
 				this.#appendQuery(
-					sql`${getColumnName(false)} @> ${sql.asJSONB(
+					sql`${getColumnName()} @> ${sql.asJSONB(
 						typeof subObject === "string"
 							? subObject
 							: JSON.stringify(subObject),
 					)}`,
 				),
-			CastAs: (castedType: string) =>
-				this.#openBaseComparator(`(${getColumnName().value})::${castedType}`),
+			CastAs: (castedType: string) => {
+				const columnName = getColumnName().value;
+				if (
+					columnName.includes("->") &&
+					!isElementOfArray(castedType, PostgresStringColumnTypes)
+				) {
+					// PG does not allow going straight into another type from jsonb, without first being a string
+					return this.#openBaseComparator(
+						`(${columnName})::text::${castedType}`,
+					);
+				}
+				return this.#openBaseComparator(`(${columnName})::${castedType}`);
+			},
 		};
 		return comparators;
 	}
 
-	#openComparator<
-		Alias extends string & keyof Shapes,
-		Key extends string & keyof Shapes[Alias],
-	>(alias: Alias, field: Key) {
+	#openComparator<Alias extends string & keyof Shapes,>(
+		alias: Alias,
+		field: string,
+	) {
 		const entity = this.#knownEntities.get(alias);
 		if (!entity) {
 			throw new Error(
@@ -199,7 +247,7 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 		return this.#openBaseComparator(
 			this.#getColumnName(alias, field).value,
 		) as unknown as WhereQueryComparators<
-			Shapes[Alias][Key],
+			unknown,
 			AndWhereQueryBuilder<Shapes> & OrWhereQueryBuilder<Shapes>
 		>;
 	}
