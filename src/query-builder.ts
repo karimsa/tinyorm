@@ -150,6 +150,7 @@ class JoinedQueryBuilder<
 	readonly #joins: PreparedQuery[] = [];
 	readonly #includedEntites = new Map<string, EntityFromShape<unknown>>();
 	readonly #orderByValues: PreparedQuery[] = [];
+	readonly #groupByValues: PreparedQuery[] = [];
 	#whereBuilder: InternalWhereBuilder<Shapes> | null = null;
 
 	constructor(
@@ -266,7 +267,7 @@ class JoinedQueryBuilder<
 		return this;
 	}
 
-	getOrderBy() {
+	#getOrderBy() {
 		if (this.#orderByValues.length === 0) {
 			return sql``;
 		}
@@ -277,6 +278,32 @@ class JoinedQueryBuilder<
 			),
 		);
 		return sql.wrapQuery(` ORDER BY (`, query, `)`);
+	}
+
+	addRawGroupBy(query: PreparedQuery) {
+		this.#groupByValues.push(query);
+		return this;
+	}
+
+	addGroupBy<
+		Alias extends string & keyof Shapes,
+		Column extends string & keyof Shapes[Alias],
+	>(alias: Alias, column: Column) {
+		this.#groupByValues.push(sql.unescaped(`"${alias}"."${column}"`));
+		return this;
+	}
+
+	#getGroupBy() {
+		if (this.#groupByValues.length === 0) {
+			return sql``;
+		}
+
+		const query = joinAllQueries(
+			this.#groupByValues.map((query, index, self) =>
+				index === self.length - 1 ? query : sql.suffixQuery(query, ", "),
+			),
+		);
+		return sql.wrapQuery(` GROUP BY (`, query, `)`);
 	}
 
 	getQuery(): FinalizedQuery {
@@ -297,7 +324,8 @@ class JoinedQueryBuilder<
 				)} `,
 				...this.#joins,
 				...(this.#whereBuilder ? [this.#whereBuilder.getQuery()] : []),
-				this.getOrderBy(),
+				this.#getGroupBy(),
+				this.#getOrderBy(),
 			]),
 		);
 	}

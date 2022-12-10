@@ -253,6 +253,7 @@ describe("QueryBuilder", () => {
 				.select("user", ["id"])
 				.selectRaw(sql`count(distinct user_post.post_id)`, "test", z.number())
 				.where((where) => where("user", "name").Equals("Karim"))
+				.addGroupBy("user", "id")
 				.addOrderBy("user", "id")
 				.addRawOrderBy(sql`test`);
 
@@ -274,6 +275,7 @@ describe("QueryBuilder", () => {
 					FROM "app"."user" AS "user"
 					INNER JOIN "app"."user_post" AS "user_post" ON "user_post".user_id = "user".id
 					WHERE ("user"."name" = $1::text )
+					GROUP BY ("user"."id")
 					ORDER BY ("user"."id" ASC, test)
 				`,
 				values: ["Karim"],
