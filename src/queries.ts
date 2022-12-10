@@ -1,6 +1,6 @@
 import { EntityFromShape } from "./entity";
 
-export type PostgresSimpleValueType = string | number | boolean | Date;
+export type PostgresSimpleValueType = string | number | boolean | Date | object;
 
 export type PostgresValueType =
 	| PostgresSimpleValueType
@@ -109,6 +109,10 @@ function getPgTypeOf(
 		return { type: "null", isArray: false };
 	}
 
+	if (typeof value === "object") {
+		return { type: "jsonb", isArray: false };
+	}
+
 	throw new UnknownQueryParameterTypeError(
 		`Failed to find type for value: ${value} (use a typecast helper)`,
 		value,
@@ -128,8 +132,10 @@ function getPgValueOf({ type, value }: QueryVariable & { isArray: false }) {
 			return Boolean(value);
 		case "text":
 		case "varchar":
-		case "jsonb":
 			return String(value);
+		case "jsonb":
+			// This is going to come back and haunt me one day
+			return typeof value === "string" ? value : JSON.stringify(value);
 		case "timestamp":
 			if (
 				value &&

@@ -12,10 +12,18 @@ describe("sql", () => {
 					AND name = ${"test"}
 					AND is_row = ${true}
 					AND stuff = ${undefined}
+					AND gah @> ${{ bar: true }}
 			`),
 		).toEqual({
-			text: "SELECT * FROM foo WHERE created_at >= $1::timestamp AND name = $2::text AND is_row = $3::boolean AND stuff = $4",
-			values: ["2022-01-01T20:47:18.789Z", "test", true, null],
+			text: `
+				SELECT *
+				FROM foo
+				WHERE created_at >= $1::timestamp
+				  AND name = $2::text
+				  AND is_row = $3::boolean
+				  AND stuff = $4
+				  AND gah @> $5::jsonb`,
+			values: ["2022-01-01T20:47:18.789Z", "test", true, null, `{"bar":true}`],
 		});
 	});
 	it("should join prepared statements with multiple variables", () => {
