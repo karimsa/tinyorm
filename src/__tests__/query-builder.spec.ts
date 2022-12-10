@@ -12,7 +12,7 @@ import { z } from "zod";
 class User extends Entity({ schema: "app", tableName: "user" }) {
 	@Column({ type: 'uuid' })
 	readonly id: string;
-	@Column({ type: 'uuid' })
+	@Column({ type: 'string' })
 	readonly status: "Active" | "Inactive";
 	@Column({ type: 'text' })
 	readonly name: string;
