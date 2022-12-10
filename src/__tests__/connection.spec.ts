@@ -1,6 +1,6 @@
 import { describe, it } from "@jest/globals";
 import { Entity, Column, finalizeQuery } from "../";
-import { createConnectionPool } from "../connection";
+import { ConnectionPool, createConnectionPool } from "../connection";
 import { expectQuery } from "./util";
 
 class TestUser extends Entity({ schema: "public", tableName: "test_user" }) {
@@ -13,16 +13,24 @@ class TestUser extends Entity({ schema: "public", tableName: "test_user" }) {
 }
 
 describe("Connection", () => {
-	it("should allow inserting new rows", async () => {
-		const pool = await createConnectionPool({
-			port: 5531,
-			user: "postgres",
-			database: "end_to_end",
+	it("should allow creating tables", async () => {
+		expectQuery(
+			finalizeQuery(ConnectionPool.getCreateTableQuery(TestUser)),
+		).toEqual({
+			text: `
+				CREATE TABLE IF NOT EXISTS "public"."test_user" (
+					"id" uuid NOT NULL,
+					"name" text NOT NULL,
+					"meta" jsonb NOT NULL
+				)
+			`,
+			values: [],
 		});
-
+	});
+	it("should allow inserting new rows", async () => {
 		expectQuery(
 			finalizeQuery(
-				pool.getInsertQuery(TestUser, {
+				ConnectionPool.getInsertQuery(TestUser, {
 					id: "6f0dea07-dbf6-4e6b-9e3b-8df47d278628",
 					name: "test",
 					meta: { isCool: true },
