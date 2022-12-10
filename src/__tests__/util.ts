@@ -12,9 +12,8 @@ const pretty = (text: string) => {
 export function expectQuery(given: FinalizedQuery) {
 	return {
 		toEqual(expected: FinalizedQuery) {
-			expect(pretty(given.text)).toEqual(pretty(expected.text));
-			expect(given).toMatchObject({
-				text: given.text,
+			expect({ text: pretty(given.text), values: given.values }).toMatchObject({
+				text: pretty(expected.text),
 				values: expected.values,
 			});
 		},
