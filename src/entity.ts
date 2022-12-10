@@ -1,9 +1,5 @@
 import { assertCase } from "./utils";
 
-const entityRegistry = new WeakMap<
-	object,
-	{ schema: string; tableName: string; fields: Map<string, ColumnOptions> }
->();
 const fieldRegistry = new WeakMap<object, Map<string, ColumnOptions>>();
 
 export function Entity({

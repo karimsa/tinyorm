@@ -19,8 +19,6 @@ export type WhereQueryComparators<
 	Like(values: string): NextQueryBuilder;
 };
 
-// TODO: Maybe restrict it to act as pure modifiers that only step forward
-// otherwise the type safety is useless
 export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 	#binaryOperator: "AND" | "OR" | null = null;
 	readonly #queries: PreparedQuery[];
@@ -67,7 +65,7 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 		return new InternalWhereBuilder(
 			this.#knownEntities,
 			builders.flatMap((builder, index) => [
-				builder.getQuery(),
+				builder.getConditionQuery(),
 				...(index === builders.length - 1
 					? []
 					: [{ text: [" OR "], params: [] }]),
@@ -183,10 +181,16 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 		]);
 	}
 
-	getQuery(): PreparedQuery {
+	getConditionQuery(): PreparedQuery {
 		const query = joinAllQueries(this.#queries);
 		query.text[0] = `(${query.text[0]}`;
 		query.text[query.text.length - 1] = `${query.text[query.text.length - 1]})`;
+		return query;
+	}
+
+	getQuery(): PreparedQuery {
+		const query = this.getConditionQuery();
+		query.text[0] = ` WHERE ${query.text[0]}`;
 		return query;
 	}
 }
@@ -201,3 +205,22 @@ export type OrWhereQueryBuilder<Shapes extends Record<string, object>> = Pick<
 >;
 export type WhereQueryBuilder<Shapes extends Record<string, object>> =
 	ReturnType<InternalWhereBuilder<Shapes>["getBuilder"]>;
+
+export function createWhereBuilder<Shapes extends Record<string, object>>(
+	knownEntities:
+		| Map<
+				string & keyof Shapes,
+				Pick<EntityFromShape<unknown>, "schema" | "tableName">
+		  >
+		| Record<
+				string & keyof Shapes,
+				Pick<EntityFromShape<unknown>, "schema" | "tableName">
+		  >,
+): WhereQueryBuilder<Shapes> {
+	const builder = new InternalWhereBuilder<Shapes>(
+		knownEntities instanceof Map
+			? knownEntities
+			: new Map(Object.entries(knownEntities)),
+	);
+	return builder.getBuilder();
+}
