@@ -260,11 +260,11 @@ class JoinedQueryBuilder<
 	addOrderBy<Alias extends string & keyof ResultShape>(
 		alias: Alias,
 		direction: "ASC" | "DESC",
-	): typeof this;
+	): this;
 	addOrderBy<
 		Alias extends string & keyof Shapes,
 		Column extends string & keyof Shapes[Alias],
-	>(alias: Alias, column: Column, direction: "ASC" | "DESC"): typeof this;
+	>(alias: Alias, column: Column, direction: "ASC" | "DESC"): this;
 	addOrderBy(
 		alias: string,
 		columnOrDirection: string,
