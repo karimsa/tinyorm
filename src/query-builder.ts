@@ -149,6 +149,7 @@ class JoinedQueryBuilder<
 	>();
 	readonly #joins: PreparedQuery[] = [];
 	readonly #includedEntites = new Map<string, EntityFromShape<unknown>>();
+	readonly #orderByValues: PreparedQuery[] = [];
 	#whereBuilder: InternalWhereBuilder<Shapes> | null = null;
 
 	constructor(
@@ -174,12 +175,7 @@ class JoinedQueryBuilder<
 		this.#includedEntites.set(alias, joinedEntity);
 		this.#joins.push(
 			joinQueries(
-				{
-					text: [
-						`INNER JOIN ${sql.getEntityRef(joinedEntity, alias).value} ON `,
-					],
-					params: [],
-				},
+				sql` INNER JOIN ${sql.getEntityRef(joinedEntity, alias)} ON `,
 				condition,
 			),
 		);
@@ -255,32 +251,53 @@ class JoinedQueryBuilder<
 		>;
 	}
 
+	addRawOrderBy(query: PreparedQuery) {
+		this.#orderByValues.push(query);
+		return this;
+	}
+
+	addOrderBy<
+		Alias extends string & keyof Shapes,
+		Column extends string & keyof Shapes[Alias],
+	>(alias: Alias, column: Column, direction: "ASC" | "DESC" = "ASC") {
+		this.#orderByValues.push(
+			sql.unescaped(`"${alias}"."${column}" ${direction}`),
+		);
+		return this;
+	}
+
+	getOrderBy() {
+		if (this.#orderByValues.length === 0) {
+			return sql``;
+		}
+
+		const query = joinAllQueries(
+			this.#orderByValues.map((query, index, self) =>
+				index === self.length - 1 ? query : sql.suffixQuery(query, ", "),
+			),
+		);
+		return sql.wrapQuery(` ORDER BY (`, query, `)`);
+	}
+
 	getQuery(): FinalizedQuery {
 		return finalizeQuery(
 			joinAllQueries([
-				{
-					text: [
-						` SELECT ${[
-							...this.#getSelectedFields(),
+				sql` SELECT ${sql.asUnescaped(
+					[
+						...this.#getSelectedFields(),
 
-							// Insert a trailing comma if computed fields will follow
-							...(this.#selectedComputedFields.size === 0 ? [] : [""]),
-						].join(", ")} `,
-					],
-					params: [],
-				},
+						// Insert a trailing comma if computed fields will follow
+						...(this.#selectedComputedFields.size === 0 ? [] : [""]),
+					].join(", "),
+				)} `,
 				...this.#getSelectedComputedFields(),
-				{
-					text: [
-						` FROM ${
-							sql.getEntityRef(this.targetFromEntity, this.targetEntityAlias)
-								.value
-						} `,
-					],
-					params: [],
-				},
+				sql` FROM ${sql.getEntityRef(
+					this.targetFromEntity,
+					this.targetEntityAlias,
+				)} `,
 				...this.#joins,
 				...(this.#whereBuilder ? [this.#whereBuilder.getQuery()] : []),
+				this.getOrderBy(),
 			]),
 		);
 	}

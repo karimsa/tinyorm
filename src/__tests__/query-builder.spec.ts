@@ -246,5 +246,38 @@ describe("QueryBuilder", () => {
 				values: ["Karim"],
 			});
 		});
+		it("should allow grouping and ordering", () => {
+			const qb = createJoinBuilder()
+				.from(User, "user")
+				.innerJoin(UserPost, "user_post", sql`"user_post".user_id = "user".id`)
+				.select("user", ["id"])
+				.selectRaw(sql`count(distinct user_post.post_id)`, "test", z.number())
+				.where((where) => where("user", "name").Equals("Karim"))
+				.addOrderBy("user", "id")
+				.addRawOrderBy(sql`test`);
+
+			assertType<{ user: { id: string }; test: number } | null>(
+				getResolvedType(qb.getOne),
+			);
+			expect(qb.buildOne({ user_id: "user-id", test: 3.14 })).toEqual({
+				user: { id: "user-id" },
+				test: 3.14,
+			});
+			expect(() =>
+				qb.buildOne({ user_id: "user-id", test: "3.14" }),
+			).toThrowError(/invalid value/i);
+			expectQuery(qb.getQuery()).toEqual({
+				text: `
+					SELECT
+						"user"."id" AS "user_id",
+						count(distinct user_post.post_id) AS "test"
+					FROM "app"."user" AS "user"
+					INNER JOIN "app"."user_post" AS "user_post" ON "user_post".user_id = "user".id
+					WHERE ("user"."name" = $1::text )
+					ORDER BY ("user"."id" ASC, test)
+				`,
+				values: ["Karim"],
+			});
+		});
 	});
 });

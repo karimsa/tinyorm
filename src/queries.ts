@@ -277,6 +277,50 @@ export const sql = Object.assign(
 	{
 		...typeCastHelpers,
 		getEntityRef,
+		unescaped: (text: string): PreparedQuery => ({
+			text: [text],
+			params: [],
+		}),
+
+		/**
+		 * Adds given prefix to the query.
+		 *
+		 * WARNING: Modifies the input query for performance.
+		 */
+		prefixQuery(prefix: string, query: PreparedQuery) {
+			query.text[0] = `${prefix}${query.text[0]}`;
+			return query;
+		},
+
+		/**
+		 * Adds given prefix to the query.
+		 *
+		 * WARNING: Modifies the input query for performance.
+		 */
+		suffixQuery(query: PreparedQuery, suffix: string) {
+			query.text[query.text.length - 1] = `${
+				query.text[query.text.length - 1]
+			}${suffix}`;
+			return query;
+		},
+
+		/**
+		 * Wraps a query with a prefix + suffix.
+		 *
+		 * WARNING: Modifies the input query for performance.
+		 */
+		wrapQuery(prefix: string, query: PreparedQuery, suffix: string) {
+			return this.suffixQuery(this.prefixQuery(prefix, query), suffix);
+		},
+
+		/**
+		 * Wraps a query with a prefix + suffix.
+		 *
+		 * WARNING: Modifies the input query for performance.
+		 */
+		brackets(query: PreparedQuery) {
+			return this.wrapQuery("(", query, ")");
+		},
 	},
 );
 
