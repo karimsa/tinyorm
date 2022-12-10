@@ -1,3 +1,4 @@
+import { PostgresValueType } from "./queries";
 import { assertCase } from "./utils";
 
 const fieldRegistry = new WeakMap<object, Map<string, ColumnOptions>>();
@@ -14,8 +15,6 @@ export function Entity({
 	return class {
 		static readonly schema = schema ?? "public";
 		static readonly tableName = tableName;
-		static readonly fieldSet =
-			fieldRegistry.get(Object.getPrototypeOf(this)) ?? new Map();
 	};
 }
 
@@ -37,9 +36,23 @@ export function Column(options: ColumnOptions) {
 export type EntityFromShape<Shape> = {
 	schema: string;
 	tableName: string;
-	fieldSet: Map<string, ColumnOptions>;
 	new (...args: unknown[]): Shape;
 };
 export type ShapeFromEntity<E> = E extends EntityFromShape<infer Shape>
 	? Shape
 	: never;
+
+export function getEntityFields<Shape>(entity: EntityFromShape<Shape>) {
+	const fieldSet = fieldRegistry.get(entity.prototype);
+	if (!fieldSet) {
+		throw new Error(
+			`Failed to find field set for entity with name '${entity.tableName}'`,
+		);
+	}
+	if (fieldSet.size === 0) {
+		throw new Error(
+			`Found empty field set for entity with name '${entity.tableName}'`,
+		);
+	}
+	return fieldSet as unknown as Map<string & keyof Shape, ColumnOptions>;
+}

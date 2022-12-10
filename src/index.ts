@@ -12,3 +12,4 @@ export {
 export { Entity, Column, ColumnOptions } from "./entity";
 export { createJoinBuilder, createSelectBuilder } from "./query-builder";
 export { createWhereBuilder } from "./where-builder";
+export { createConnectionPool } from "./connection";
