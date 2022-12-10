@@ -128,7 +128,8 @@ describe("QueryBuilder", () => {
 						"organization"."name" AS "organization_name"
 					FROM "app"."user" AS "user"
 					INNER JOIN "app"."organization" AS "organization" ON organization.id = any(user.organization_ids)
-					WHERE (("user"."name" LIKE $1::text AND "user"."status" = ANY($2::text[] )) OR ("organization"."name" LIKE $3::text ))
+					WHERE ("user"."name" LIKE $1::text AND "user"."status" = ANY($2::text[]))
+					   OR "organization"."name" LIKE $3::text
 				`,
 				values: ["%Karim%", ["Active"], "Foko"],
 			});
@@ -241,7 +242,7 @@ describe("QueryBuilder", () => {
 						count(distinct user_post.post_id) AS "test"
 					FROM "app"."user" AS "user"
 					INNER JOIN "app"."user_post" AS "user_post" ON "user_post".user_id = "user".id
-					WHERE ("user"."name" = $1::text )
+					WHERE "user"."name" = $1::text
 				`,
 				values: ["Karim"],
 			});
@@ -275,7 +276,7 @@ describe("QueryBuilder", () => {
 						count(distinct user_post.post_id) AS "test"
 					FROM "app"."user" AS "user"
 					INNER JOIN "app"."user_post" AS "user_post" ON "user_post".user_id = "user".id
-					WHERE ("user"."name" = $1::text )
+					WHERE "user"."name" = $1::text
 					GROUP BY ("user"."id")
 					ORDER BY "user"."id" ASC, "test" DESC, foo DESC
 				`,

@@ -151,7 +151,7 @@ class JoinedQueryBuilder<
 	readonly #includedEntites = new Map<string, EntityFromShape<unknown>>();
 	readonly #orderByValues: PreparedQuery[] = [];
 	readonly #groupByValues: PreparedQuery[] = [];
-	#whereBuilder: InternalWhereBuilder<Shapes> | null = null;
+	#whereQuery: PreparedQuery | null = null;
 
 	constructor(
 		readonly targetFromEntity: EntityFromShape<unknown>,
@@ -238,17 +238,25 @@ class JoinedQueryBuilder<
 		return selectedFieldQueries;
 	}
 
+	whereRaw(query: PreparedQuery) {
+		this.#whereQuery = query;
+		return this as unknown as Omit<
+			JoinedQueryBuilder<Shapes, ResultShape>,
+			"where" | "whereRaw"
+		>;
+	}
+
 	where(
 		whereBuilder: (
 			where: WhereQueryBuilder<Shapes>,
 		) => AndWhereQueryBuilder<Shapes> | OrWhereQueryBuilder<Shapes>,
 	) {
-		this.#whereBuilder = whereBuilder(
+		this.#whereQuery = whereBuilder(
 			createWhereBuilder(this.#includedEntites),
-		) as unknown as InternalWhereBuilder<Shapes>;
+		).getQuery();
 		return this as unknown as Omit<
 			JoinedQueryBuilder<Shapes, ResultShape>,
-			"where"
+			"where" | "whereRaw"
 		>;
 	}
 
@@ -338,7 +346,7 @@ class JoinedQueryBuilder<
 					this.targetEntityAlias,
 				)} `,
 				...this.#joins,
-				...(this.#whereBuilder ? [this.#whereBuilder.getQuery()] : []),
+				...(this.#whereQuery ? [this.#whereQuery] : []),
 				this.#getGroupBy(),
 				this.#getOrderBy(),
 			]),

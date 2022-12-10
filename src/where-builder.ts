@@ -50,27 +50,30 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 		};
 
 		return Object.assign(openWhere, {
-			either: this.either.bind(this),
+			all: this.allOrEither("AND"),
+			either: this.allOrEither("OR"),
 		});
 	}
 
-	either(
-		whereBuilders: (
-			| AndWhereQueryBuilder<Shapes>
-			| OrWhereQueryBuilder<Shapes>
-		)[],
-	): InternalWhereBuilder<Shapes> {
-		const builders =
-			whereBuilders as unknown[] as InternalWhereBuilder<Shapes>[];
-		return new InternalWhereBuilder(
-			this.#knownEntities,
-			builders.flatMap((builder, index) => [
-				builder.getConditionQuery(),
-				...(index === builders.length - 1
-					? []
-					: [{ text: [" OR "], params: [] }]),
-			]),
-		);
+	allOrEither(binaryOperator: "AND" | "OR") {
+		return (
+			whereBuilders: (
+				| AndWhereQueryBuilder<Shapes>
+				| OrWhereQueryBuilder<Shapes>
+			)[],
+		): InternalWhereBuilder<Shapes> => {
+			const builders =
+				whereBuilders as unknown[] as InternalWhereBuilder<Shapes>[];
+			return new InternalWhereBuilder(
+				this.#knownEntities,
+				builders.flatMap((builder, index) => [
+					builder.getConditionQuery(),
+					...(index === builders.length - 1
+						? []
+						: [sql.unescaped(` ${binaryOperator} `)]),
+				]),
+			);
+		};
 	}
 
 	andWhere<
@@ -171,27 +174,19 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 		}
 		return new InternalWhereBuilder<Shapes>(this.#knownEntities, [
 			...this.#queries,
-			{
-				...query,
-				text: [
-					`${this.#binaryOperator!} ${query.text[0]}`,
-					...query.text.slice(1),
-				],
-			},
+			sql.prefixQuery(this.#binaryOperator!, query),
 		]);
 	}
 
 	getConditionQuery(): PreparedQuery {
-		const query = joinAllQueries(this.#queries);
-		query.text[0] = `(${query.text[0]}`;
-		query.text[query.text.length - 1] = `${query.text[query.text.length - 1]})`;
-		return query;
+		if (this.#queries.length === 1) {
+			return this.#queries[0];
+		}
+		return sql.brackets(joinAllQueries(this.#queries));
 	}
 
 	getQuery(): PreparedQuery {
-		const query = this.getConditionQuery();
-		query.text[0] = ` WHERE ${query.text[0]}`;
-		return query;
+		return sql.prefixQuery(` WHERE `, joinAllQueries(this.#queries));
 	}
 }
 
