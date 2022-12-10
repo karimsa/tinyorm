@@ -128,6 +128,7 @@ function getPgValueOf({ type, value }: QueryVariable & { isArray: false }) {
 			return Boolean(value);
 		case "text":
 		case "varchar":
+		case "jsonb":
 			return String(value);
 		case "timestamp":
 			if (
@@ -228,6 +229,7 @@ const typeCastHelpers = {
 	asDate: (date: Date): QueryVariable => getQueryVariable(date, "date"),
 	asTimestamp: (date: Date): QueryVariable =>
 		getQueryVariable(date, "timestamp"),
+	asJSONB: (value: string) => getQueryVariable(value, "jsonb"),
 };
 
 const getEntityRef = (
