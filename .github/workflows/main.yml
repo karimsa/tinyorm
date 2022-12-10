@@ -32,6 +32,12 @@ jobs:
         if: "steps.yarn-cache.outputs.cache-hit != 'true'"
         run: yarn --frozen-lockfile
 
+      - name: Lint
+        run: yarn lint
+
+      - name: Tests
+        run: yarn test
+
       - name: Build
         run: yarn build
 
