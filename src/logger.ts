@@ -1,8 +1,14 @@
 import pino from "pino";
 import createDebug from "debug";
 
+const transportOptions =
+	process.env.NODE_ENV === "test"
+		? { transport: { target: "pino-pretty", options: { colorize: true } } }
+		: {};
+
 export const logger = pino(
 	{
+		...transportOptions,
 		level: "debug",
 	},
 	pino.multistream(
