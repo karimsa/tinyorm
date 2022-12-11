@@ -48,12 +48,6 @@ type BaseWhereQueryComparators<T, NextQueryBuilder> = {
 export type WhereQueryComparators<T, NextQueryBuilder> =
 	BaseWhereQueryComparators<T, NextQueryBuilder> & {
 		// JSONB
-		JsonProperty<Key extends string & keyof T>(
-			key: Key,
-		): WhereQueryComparators<object, NextQueryBuilder>;
-		JsonPath<Path extends JsonKeys<T extends object ? T : never>>(
-			jsonPath: Path,
-		): WhereQueryComparators<object, NextQueryBuilder>;
 		JsonContains(subObject: string | Partial<T>): NextQueryBuilder;
 	};
 
@@ -77,24 +71,33 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 	}
 
 	getBuilder() {
-		const openWhere = <
+		const that = this;
+		function openWhere<
 			Alias extends string & keyof Shapes,
 			Key extends string & keyof Shapes[Alias],
 		>(
 			entityName: Alias,
-			field: Key | JsonRef<Shapes[Alias]>,
-		) => {
-			if (this.#binaryOperator || this.#queries.length > 0) {
+			field: Key,
+		): WhereQueryComparators<
+			Shapes[Alias][Key],
+			AndWhereQueryBuilder<Shapes> & OrWhereQueryBuilder<Shapes>
+		>;
+		function openWhere<Alias extends string & keyof Shapes>(
+			entityName: Alias,
+			field: JsonRef<Shapes[Alias]>,
+		): WhereQueryComparators<
+			object,
+			AndWhereQueryBuilder<Shapes> & OrWhereQueryBuilder<Shapes>
+		>;
+		function openWhere(
+			entityName: string,
+			field: string | JsonRef<unknown>,
+		): unknown {
+			if (that.#binaryOperator || that.#queries.length > 0) {
 				throw new Error("Cannot re-open where builder");
 			}
-			return this.#openComparator(
-				entityName,
-				field,
-			) as unknown as WhereQueryComparators<
-				Key extends string & keyof Shapes[Alias] ? Shapes[Alias][Key] : object,
-				AndWhereQueryBuilder<Shapes> & OrWhereQueryBuilder<Shapes>
-			>;
-		};
+			return that.#openComparator(entityName, field) as unknown;
+		}
 
 		return Object.assign(openWhere, {
 			all: this.allOrEither("AND"),
@@ -126,7 +129,15 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 	andWhere<
 		Alias extends string & keyof Shapes,
 		Key extends string & keyof Shapes[Alias],
-	>(entityName: Alias, field: Key | JsonRef<Shapes[Alias]>) {
+	>(
+		entityName: Alias,
+		field: Key | JsonRef<Shapes[Alias]>,
+	): WhereQueryComparators<Shapes[Alias][Key], AndWhereQueryBuilder<Shapes>>;
+	andWhere<Alias extends string & keyof Shapes>(
+		entityName: Alias,
+		field: JsonRef<Shapes[Alias]>,
+	): WhereQueryComparators<object, AndWhereQueryBuilder<Shapes>>;
+	andWhere(entityName: string, field: string | JsonRef<unknown>): unknown {
 		if (this.#binaryOperator === "OR") {
 			throw new Error(
 				`Cannot convert ${this.#binaryOperator} where builder into 'AND WHERE'`,
@@ -134,32 +145,28 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 		}
 
 		this.#binaryOperator = "AND";
-		return this.#openComparator(
-			entityName,
-			field,
-		) as unknown as WhereQueryComparators<
-			Shapes[Alias][Key],
-			AndWhereQueryBuilder<Shapes>
-		>;
+		return this.#openComparator(entityName, field) as unknown;
 	}
 
 	orWhere<
 		Alias extends string & keyof Shapes,
 		Key extends string & keyof Shapes[Alias],
-	>(entityName: Alias, field: Key | JsonRef<Shapes[Alias]>) {
+	>(
+		entityName: Alias,
+		field: Key | JsonRef<Shapes[Alias]>,
+	): WhereQueryComparators<Shapes[Alias][Key], AndWhereQueryBuilder<Shapes>>;
+	orWhere<Alias extends string & keyof Shapes>(
+		entityName: Alias,
+		field: JsonRef<Shapes[Alias]>,
+	): WhereQueryComparators<object, AndWhereQueryBuilder<Shapes>>;
+	orWhere(entityName: string, field: string | JsonRef<unknown>): unknown {
 		if (this.#binaryOperator === "AND") {
 			throw new Error(
 				`Cannot convert ${this.#binaryOperator} where builder into 'OR WHERE'`,
 			);
 		}
 		this.#binaryOperator = "OR";
-		return this.#openComparator(
-			entityName,
-			field,
-		) as unknown as WhereQueryComparators<
-			Shapes[Alias][Key],
-			AndWhereQueryBuilder<Shapes>
-		>;
+		return this.#openComparator(entityName, field) as unknown;
 	}
 
 	#getColumnName(alias: string, field: string | JsonRef<unknown>) {
@@ -169,15 +176,8 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 		return sql.asUnescaped(`"${alias}"."${field}"`);
 	}
 
-	#openBaseComparator(column: string, jsonProperties: string[] = []) {
-		const getColumnName = () => {
-			if (column.includes("->") || jsonProperties.length === 0) {
-				return sql.asUnescaped(column);
-			}
-			return sql.asUnescaped(
-				`${column}->${jsonProperties.map((key) => `"${key}"`).join("->")}`,
-			);
-		};
+	#openBaseComparator(column: string) {
+		const getColumnName = () => sql.asUnescaped(column);
 		const comparators: WhereQueryComparators<
 			PostgresValueType,
 			AndWhereQueryBuilder<Shapes> & OrWhereQueryBuilder<Shapes>
@@ -192,13 +192,6 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 			Like: (value) => this.#appendQuery(sql`${getColumnName()} LIKE ${value}`),
 			NotLike: (value) =>
 				this.#appendQuery(sql`${getColumnName()} NOT LIKE ${value}`),
-			JsonProperty: (subProperty: string) =>
-				this.#openBaseComparator(column, [...jsonProperties, subProperty]),
-			JsonPath: (keyPath: string) =>
-				this.#openBaseComparator(column, [
-					...jsonProperties,
-					...keyPath.split("."),
-				]),
 			JsonContains: (subObject: string | object) =>
 				this.#appendQuery(
 					sql`${getColumnName()} @> ${sql.asJSONB(
