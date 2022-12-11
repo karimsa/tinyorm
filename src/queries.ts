@@ -31,6 +31,7 @@ export type PostgresNumericColumnType =
 	typeof PostgresNumericColumnTypes[number];
 
 export const PostgresStringColumnTypes = [
+	"uuid",
 	"character varying",
 	"varchar",
 	"character",
@@ -53,6 +54,9 @@ export const PostgresDateColumnTypes = [
 	"time with time zone",
 ] as const;
 export type PostgresDateColumnType = typeof PostgresDateColumnTypes[number];
+
+export const PostgresJsonColumnTypes = ["json", "jsonb"] as const;
+export type PostgresJsonColumnType = typeof PostgresJsonColumnTypes[number];
 
 export interface PreparedQuery {
 	text: string[];

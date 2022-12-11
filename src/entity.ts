@@ -4,6 +4,11 @@ import {
 	isJsonRef,
 	joinAllQueries,
 	JsonRef,
+	PostgresBooleanColumnType,
+	PostgresDateColumnType,
+	PostgresJsonColumnType,
+	PostgresNumericColumnType,
+	PostgresStringColumnType,
 	PreparedQuery,
 	readJsonRef,
 	sql,
@@ -76,8 +81,15 @@ export function Index<Shape>(
 	};
 }
 
+type PostgresColumnType =
+	| PostgresStringColumnType
+	| PostgresBooleanColumnType
+	| PostgresDateColumnType
+	| PostgresNumericColumnType
+	| PostgresJsonColumnType;
+
 export interface ColumnOptions {
-	type: string;
+	type: PostgresColumnType | `${PostgresColumnType}[]`;
 	nullable?: boolean;
 }
 

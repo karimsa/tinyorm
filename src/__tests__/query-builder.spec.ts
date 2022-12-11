@@ -14,7 +14,7 @@ import { z } from "zod";
 class User extends Entity({ schema: "app", tableName: "user" }) {
 	@Column({ type: 'uuid' })
 	readonly id: string;
-	@Column({ type: 'string' })
+	@Column({ type: 'text' })
 	readonly status: "Active" | "Inactive";
 	@Column({ type: 'text' })
 	readonly name: string;
@@ -31,7 +31,7 @@ class UserPost extends Entity({ schema: "app", tableName: "user_post" }) {
 	readonly post_id: string;
 	@Column({ type: 'text' })
 	readonly reaction: "Like" | "Dislike" | "Love";
-	@Column({ type: 'timestamp with timezone' })
+	@Column({ type: 'timestamp with time zone' })
 	readonly reacted_at: Date;
 }
 
@@ -51,7 +51,7 @@ class Post extends Entity({ schema: "app", tableName: "post" }) {
 	readonly author_id: string;
 	@Column({ type: 'text' })
 	readonly content: string;
-	@Column({ type: 'timestamp with timezone' })
+	@Column({ type: 'timestamp with time zone' })
 	readonly created_at: Date;
 	@Column({type: 'jsonb'})
 	readonly meta: PostMeta;
