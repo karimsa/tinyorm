@@ -1,13 +1,17 @@
-import { sql, finalizeQuery, joinQueries } from "..";
+import { sql, finalizeQuery, joinQueries, Entity } from "..";
 import { describe, it } from "@jest/globals";
 import { expectQuery } from "./util";
+import { isEntity } from "../entity";
 
 describe("sql", () => {
 	it("should prepare query statements with interpolated values (without casts)", () => {
+		class foo extends Entity({ schema: "public", tableName: "foo" }) {}
+
+		expect(isEntity(foo)).toEqual(true);
 		expectQuery(
 			finalizeQuery(sql`
 				SELECT *
-				FROM foo
+				FROM ${foo}
 				WHERE created_at >= ${new Date("2022-01-01T20:47:18.789Z")}
 					AND name = ${"test"}
 					AND is_row = ${true}
@@ -17,7 +21,7 @@ describe("sql", () => {
 		).toEqual({
 			text: `
 				SELECT *
-				FROM foo
+				FROM "public"."foo"
 				WHERE created_at >= $1::timestamp
 				  AND name = $2::text
 				  AND is_row = $3::boolean

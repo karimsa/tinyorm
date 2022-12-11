@@ -1,4 +1,4 @@
-import { EntityFromShape } from "./entity";
+import { EntityFromShape, isEntity } from "./entity";
 
 export type PostgresSimpleValueType = string | number | boolean | Date | object;
 
@@ -83,7 +83,7 @@ type QueryVariable =
 			value: (PostgresSimpleValueType | null)[];
 	  };
 
-// rome-ignore lint/suspicious/noExplicitAny: <explanation>
+// rome-ignore lint/suspicious/noExplicitAny: This is a type-guard.
 function isQueryVariable(variable: any): variable is QueryVariable {
 	return (
 		typeof variable === "object" &&
@@ -95,7 +95,7 @@ function isQueryVariable(variable: any): variable is QueryVariable {
 	);
 }
 
-// rome-ignore lint/suspicious/noExplicitAny: <explanation>
+// rome-ignore lint/suspicious/noExplicitAny: This is a type-guard.
 function isUnescapedVariable(variable: any): variable is UnescapedVariable {
 	return (
 		typeof variable === "object" &&
@@ -301,6 +301,7 @@ export const sql = Object.assign(
 	(
 		templateStrings: TemplateStringsArray,
 		...parameters: (
+			| EntityFromShape<unknown>
 			| PostgresValueType
 			| QueryVariable
 			| UnescapedVariable
@@ -316,6 +317,9 @@ export const sql = Object.assign(
 			if (isUnescapedVariable(param)) {
 				preparedQuery.text.push(templateStrings[index + 1]);
 				preparedQuery.params.push(param);
+			} else if (isEntity(param)) {
+				preparedQuery.text.push(templateStrings[index + 1]);
+				preparedQuery.params.push(sql.getEntityRef(param));
 			} else {
 				const queryVar = getQueryVariable(param ?? null);
 

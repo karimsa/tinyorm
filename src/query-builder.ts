@@ -31,7 +31,11 @@ export class QueryError extends Error {
 
 abstract class BaseQueryBuilder<ResultShape> {
 	abstract buildOne(row: unknown): ResultShape | null;
-	abstract getQuery(): FinalizedQuery;
+	abstract getPreparedQuery(): PreparedQuery;
+
+	getQuery(): FinalizedQuery {
+		return finalizeQuery(this.getPreparedQuery());
+	}
 
 	buildMany(rows: unknown[]): ResultShape[] {
 		return rows
@@ -101,16 +105,13 @@ class QueryBuilder<
 		return this as any;
 	}
 
-	getQuery(): FinalizedQuery {
-		return {
-			text: `
-                SELECT ${this.#selectedFields
-									.map((field) => `"${field}"`)
-									.join(", ")}
-                FROM ${sql.getEntityRef(this.targetFromEntity).value}
-            `,
-			values: [],
-		};
+	getPreparedQuery(): PreparedQuery {
+		return sql`
+			SELECT ${sql.asUnescaped(
+				this.#selectedFields.map((field) => `"${field}"`).join(", "),
+			)}
+			FROM ${this.targetFromEntity}
+		`;
 	}
 
 	buildOne(row: unknown): ResultShape | null {
@@ -329,28 +330,26 @@ class JoinedQueryBuilder<
 		return sql.wrapQuery(` GROUP BY (`, query, `)`);
 	}
 
-	getQuery(): FinalizedQuery {
-		return finalizeQuery(
-			joinAllQueries([
-				sql` SELECT ${sql.asUnescaped(
-					[
-						...this.#getSelectedFields(),
+	getPreparedQuery(): PreparedQuery {
+		return joinAllQueries([
+			sql` SELECT ${sql.asUnescaped(
+				[
+					...this.#getSelectedFields(),
 
-						// Insert a trailing comma if computed fields will follow
-						...(this.#selectedComputedFields.size === 0 ? [] : [""]),
-					].join(", "),
-				)} `,
-				...this.#getSelectedComputedFields(),
-				sql` FROM ${sql.getEntityRef(
-					this.targetFromEntity,
-					this.targetEntityAlias,
-				)} `,
-				...this.#joins,
-				...(this.#whereQuery ? [this.#whereQuery] : []),
-				this.#getGroupBy(),
-				this.#getOrderBy(),
-			]),
-		);
+					// Insert a trailing comma if computed fields will follow
+					...(this.#selectedComputedFields.size === 0 ? [] : [""]),
+				].join(", "),
+			)} `,
+			...this.#getSelectedComputedFields(),
+			sql` FROM ${sql.getEntityRef(
+				this.targetFromEntity,
+				this.targetEntityAlias,
+			)} `,
+			...this.#joins,
+			...(this.#whereQuery ? [this.#whereQuery] : []),
+			this.#getGroupBy(),
+			this.#getOrderBy(),
+		]);
 	}
 
 	buildOne(row: unknown): ResultShape | null {

@@ -1,4 +1,3 @@
-import { PostgresValueType } from "./queries";
 import { assertCase } from "./utils";
 
 const fieldRegistry = new WeakMap<object, Map<string, ColumnOptions>>();
@@ -41,6 +40,16 @@ export type EntityFromShape<Shape> = {
 export type ShapeFromEntity<E> = E extends EntityFromShape<infer Shape>
 	? Shape
 	: never;
+
+// rome-ignore lint/suspicious/noExplicitAny: This is a type-guard.
+export function isEntity(entity: any): entity is EntityFromShape<unknown> {
+	return (
+		typeof entity === "function" &&
+		entity !== null &&
+		typeof entity.schema === "string" &&
+		typeof entity.tableName === "string"
+	);
+}
 
 export function getEntityFields<Shape>(entity: EntityFromShape<Shape>) {
 	const fieldSet = fieldRegistry.get(entity.prototype);
