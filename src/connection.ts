@@ -297,7 +297,15 @@ export class Connection {
 	}
 
 	async unsafe_resetAllMigrations() {
-		await this.query(finalizeQuery(sql`DELETE FROM ${Migrations} WHERE TRUE`));
+		try {
+			await this.query(
+				finalizeQuery(sql`DELETE FROM ${Migrations} WHERE TRUE`),
+			);
+		} catch (err) {
+			if (!String(err).match(/relation.*does not exist/)) {
+				throw err;
+			}
+		}
 	}
 
 	async executeMigration(
