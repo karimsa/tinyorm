@@ -297,6 +297,55 @@ const getEntityRef = (
 	return sql.asUnescaped(`"${entity.schema}"."${entity.tableName}"`);
 };
 
+const kJsonRef = Symbol("jsonRef");
+
+export type JsonRef = Record<typeof kJsonRef, string>;
+
+const createJsonRefProxy = (jsonRef: {
+	column: string;
+	jsonPath: string[];
+}) =>
+	new Proxy(
+		{},
+		{
+			get: (_, key): unknown =>
+				typeof key === "string"
+					? createJsonRefProxy({
+							column: jsonRef.column || key,
+							jsonPath: jsonRef.column
+								? [...jsonRef.jsonPath, key]
+								: jsonRef.jsonPath,
+					  })
+					: key === kJsonRef
+					? `"${jsonRef.column}"->${jsonRef.jsonPath
+							.map((key) => `"${key}"`)
+							.join("->")}`
+					: null,
+		},
+	);
+
+type JsonRefBuilder<Shape> = JsonRef &
+	(Shape extends string
+		? {}
+		: {
+				[Key in keyof Shape]: JsonRefBuilder<Shape[Key]>;
+		  });
+
+export function readJsonRef(value: JsonRef): string {
+	return value[kJsonRef];
+}
+
+// rome-ignore lint/suspicious/noExplicitAny: This is a type-guard.
+export function isJsonRef(value: any): value is JsonRef {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		// This requires a double-eval atm, since the proxy does
+		// not respond to 'has' and this checks the underlying type
+		typeof value[kJsonRef] === "string"
+	);
+}
+
 export const sql = Object.assign(
 	(
 		templateStrings: TemplateStringsArray,
@@ -320,6 +369,9 @@ export const sql = Object.assign(
 			} else if (isEntity(param)) {
 				preparedQuery.text.push(templateStrings[index + 1]);
 				preparedQuery.params.push(sql.getEntityRef(param));
+			} else if (isJsonRef(param)) {
+				preparedQuery.text.push(templateStrings[index + 1]);
+				preparedQuery.params.push(sql.asUnescaped(param[kJsonRef]));
 			} else {
 				const queryVar = getQueryVariable(param ?? null);
 
@@ -336,6 +388,14 @@ export const sql = Object.assign(
 	{
 		...typeCastHelpers,
 		getEntityRef,
+
+		json<Shape>(_: EntityFromShape<Shape>) {
+			return createJsonRefProxy({
+				column: "",
+				jsonPath: [],
+			}) as unknown as JsonRefBuilder<Shape>;
+		},
+
 		unescaped: (text: string): PreparedQuery => ({
 			text: [text],
 			params: [],

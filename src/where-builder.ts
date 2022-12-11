@@ -11,20 +11,7 @@ import {
 	PostgresDateColumnType,
 	PostgresStringColumnTypes,
 } from "./queries";
-import { isElementOfArray } from "./utils";
-
-type JsonKeys<Shape extends object> = {
-	[K in keyof Shape]: K extends string
-		? Shape[K] extends
-				| Exclude<PostgresSimpleValueType, object>
-				| unknown[]
-				| null
-			? K
-			: Shape[K] extends object
-			? K | `${K}.${JsonKeys<Shape[K]>}`
-			: never
-		: never;
-}[keyof Shape];
+import { isElementOfArray, JsonKeys } from "./utils";
 
 type BaseWhereQueryComparators<T, NextQueryBuilder> = {
 	// Misc
@@ -231,7 +218,7 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 		return comparators;
 	}
 
-	#openComparator<Alias extends string & keyof Shapes,>(
+	#openComparator<Alias extends string & keyof Shapes>(
 		alias: Alias,
 		field: string,
 	) {

@@ -4,11 +4,13 @@ import {
 	sql,
 	createSelectBuilder,
 	createJoinBuilder,
+	Index,
 } from "..";
 import { expectQuery, getResolvedType } from "./util";
 import { assertType } from "../utils";
 import { z } from "zod";
 
+@Index(User)('idx_status', sql`(status)`)
 class User extends Entity({ schema: "app", tableName: "user" }) {
 	@Column({ type: 'uuid' })
 	readonly id: string;
@@ -33,6 +35,15 @@ class UserPost extends Entity({ schema: "app", tableName: "user_post" }) {
 	readonly reacted_at: Date;
 }
 
+interface PostMeta {
+	isReal: boolean;
+	other: {
+		data: string;
+	};
+}
+
+@Index(Post)('idx_meta_auto', [sql.json(Post).meta.other.data])
+@Index(Post)('idx_active', sql`USING btree (id ASC, author_id ASC) WHERE content = 'Hello, world!'`)
 class Post extends Entity({ schema: "app", tableName: "post" }) {
 	@Column({ type: 'uuid' })
 	readonly id: string;
@@ -42,6 +53,8 @@ class Post extends Entity({ schema: "app", tableName: "post" }) {
 	readonly content: string;
 	@Column({ type: 'timestamp with timezone' })
 	readonly created_at: Date;
+	@Column({type: 'jsonb'})
+	readonly meta: PostMeta;
 }
 
 class Organization extends Entity({

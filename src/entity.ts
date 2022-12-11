@@ -1,3 +1,4 @@
+import { isJsonRef, JsonRef, PreparedQuery, readJsonRef, sql } from "./queries";
 import { assertCase } from "./utils";
 
 const fieldRegistry = new WeakMap<object, Map<string, ColumnOptions>>();
@@ -14,6 +15,37 @@ export function Entity({
 	return class {
 		static readonly schema = schema ?? "public";
 		static readonly tableName = tableName;
+	};
+}
+
+const indexRegistry = new WeakMap<object, Map<string, PreparedQuery>>();
+
+export function Index<Shape>(
+	_: EntityFromShape<Shape>,
+): (
+	name: string,
+	columns: PreparedQuery | (keyof Shape | JsonRef)[],
+) => (target: EntityFromShape<Shape>) => void {
+	return (name, columns) => {
+		return (target) => {
+			const indexQuery = Array.isArray(columns)
+				? sql.unescaped(
+						`(${columns
+							.map((column) => {
+								if (isJsonRef(column)) {
+									return readJsonRef(column);
+								}
+								return column;
+							})
+							.join(", ")})`,
+				  )
+				: columns;
+
+			const indexSet =
+				indexRegistry.get(target) ?? new Map<string, PreparedQuery>();
+			indexRegistry.set(target, indexSet);
+			indexSet.set(name, indexQuery);
+		};
 	};
 }
 
