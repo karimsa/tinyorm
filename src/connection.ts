@@ -3,13 +3,46 @@ import {
 	PoolConfig as PostgresPoolOptions,
 	PoolClient as PostgresClient,
 } from "pg";
-import { EntityFromShape, getEntityFields } from "./entity";
 import {
+	Column,
+	Entity,
+	EntityFromShape,
+	getEntityFields,
+	getEntityIndices,
+} from "./entity";
+import {
+	FinalizedQuery,
 	finalizeQuery,
 	joinAllQueries,
 	PostgresValueType,
 	sql,
 } from "./queries";
+import { createJoinBuilder } from "./query-builder";
+
+class TableColumnSchema extends Entity({
+	schema: "information_schema",
+	tableName: "columns",
+}) {
+	@Column({ type: 'text' })
+	table_schema: string;
+	@Column({type:'text'})
+	table_name: string;
+	@Column({type:'text'})
+	column_name: string;
+	@Column({type:'text'})
+	is_nullable: string;
+	@Column({type:'text'})
+	column_default: string;
+	@Column({type:'text'})
+	data_type: string;
+}
+
+export type MigrationReason = "Missing Table" | "Missing Index";
+
+export interface SuggestedMigration {
+	reason: MigrationReason;
+	query: FinalizedQuery;
+}
 
 export class Connection {
 	constructor(readonly client: PostgresClient) {}
@@ -26,10 +59,50 @@ export class Connection {
 		);
 	}
 
+	async dropTable(entity: EntityFromShape<unknown>) {
+		return this.client.query(
+			finalizeQuery(sql`DROP TABLE IF EXISTS ${entity}`),
+		);
+	}
+
 	async insertOne<Shape>(entity: EntityFromShape<Shape>, entry: Shape) {
 		return this.client.query(
 			finalizeQuery(ConnectionPool.getInsertQuery(entity, entry)),
 		);
+	}
+
+	async getMigrationQueries(
+		entity: EntityFromShape<unknown>,
+	): Promise<SuggestedMigration[]> {
+		const migrationQueries: SuggestedMigration[] = [];
+
+		const existingColumnData = await createJoinBuilder()
+			.from(TableColumnSchema, "col")
+			.selectAll("col")
+			.where((where) =>
+				where("col", "table_schema")
+					.Equals(entity.schema)
+					.andWhere("col", "table_name")
+					.Equals(entity.tableName),
+			)
+			.getMany(this.client);
+
+		// Creation of table from scratch
+		if (existingColumnData.length === 0) {
+			migrationQueries.push({
+				reason: "Missing Table",
+				query: finalizeQuery(ConnectionPool.getCreateTableQuery(entity, false)),
+			});
+
+			for (const query of getEntityIndices(entity).values()) {
+				migrationQueries.push({
+					reason: "Missing Index",
+					query,
+				});
+			}
+		}
+
+		return migrationQueries;
 	}
 }
 
@@ -71,6 +144,16 @@ export class ConnectionPool {
 
 			throw err;
 		}
+	}
+
+	async getMigrationQueries(entity: EntityFromShape<unknown>) {
+		return this.withTransaction(async (connection) => {
+			return connection.getMigrationQueries(entity);
+		});
+	}
+
+	destroy() {
+		return this.clientPool.end();
 	}
 
 	static getCreateTableQuery<Shape>(

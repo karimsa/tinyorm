@@ -117,7 +117,6 @@ function getPgTypeOf(
 	if (Array.isArray(value)) {
 		const firstValue = value.find((v) => v !== null);
 		if (firstValue === undefined) {
-			console.dir({ value, firstValue });
 			throw new UnknownQueryParameterTypeError(
 				`Failed to find type for array: ${JSON.stringify(
 					value,
@@ -454,7 +453,7 @@ export function finalizeQuery(query: PreparedQuery): FinalizedQuery {
 	};
 	for (const [index, queryVar] of query.params.entries()) {
 		if (isUnescapedVariable(queryVar)) {
-			finalizedQuery.text += `${queryVar.value} ${query.text[index + 1]}`;
+			finalizedQuery.text += `${queryVar.value}${query.text[index + 1]}`;
 		} else {
 			finalizedQuery.text += `${castValue(
 				`$${finalizedQuery.values.length + 1}`,

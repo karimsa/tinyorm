@@ -1,4 +1,4 @@
-import { EntityFromShape } from "./entity";
+import { EntityFromShape, getEntityFields } from "./entity";
 import {
 	FinalizedQuery,
 	finalizeQuery,
@@ -9,11 +9,10 @@ import {
 	sql,
 } from "./queries";
 import { assertCase } from "./utils";
-import { Pool as PostgresClientPool, PoolClient as PostgresClient } from "pg";
+import { PoolClient as PostgresClient } from "pg";
 import {
 	AndWhereQueryBuilder,
 	createWhereBuilder,
-	InternalWhereBuilder,
 	OrWhereQueryBuilder,
 	WhereQueryBuilder,
 } from "./where-builder";
@@ -56,33 +55,28 @@ abstract class BaseQueryBuilder<ResultShape> {
 		}
 	}
 
-	async getOne(pool: PostgresClientPool): Promise<ResultShape | null> {
-		const client = await pool.connect();
-
+	async getOne(client: PostgresClient): Promise<ResultShape | null> {
 		const query = this.getQuery();
 		query.text += " LIMIT 1";
 
 		const rows = await this.executeQuery(client, query);
-		client.release();
+		if (rows.length === 0) {
+			return null;
+		}
 		return this.buildOne(rows[0]);
 	}
 
-	async getOneOrFail(pool: PostgresClientPool): Promise<ResultShape> {
-		const result = await this.getOne(pool);
+	async getOneOrFail(client: PostgresClient): Promise<ResultShape> {
+		const result = await this.getOne(client);
 		if (!result) {
 			throw new Error("Failed to find any results to query");
 		}
 		return result;
 	}
 
-	async getMany(pool: PostgresClientPool): Promise<ResultShape[]> {
-		const client = await pool.connect();
-
+	async getMany(client: PostgresClient): Promise<ResultShape[]> {
 		const query = this.getQuery();
-		query.text += " LIMIT 1";
-
 		const rows = await this.executeQuery(client, query);
-		client.release();
 		return this.buildMany(rows);
 	}
 }
@@ -106,6 +100,10 @@ class QueryBuilder<
 	}
 
 	getPreparedQuery(): PreparedQuery {
+		if (this.#selectedFields.length === 0) {
+			throw new Error(`No fields selected, cannot perform select query`);
+		}
+
 		return sql`
 			SELECT ${sql.asUnescaped(
 				this.#selectedFields.map((field) => `"${field}"`).join(", "),
@@ -198,6 +196,26 @@ class JoinedQueryBuilder<
 		return this as unknown as JoinedQueryBuilder<
 			Shapes,
 			ResultShape & { [key in Alias]: Pick<Shapes[Alias], Keys> }
+		>;
+	}
+
+	selectAll<Alias extends string & keyof Shapes>(alias: Alias) {
+		const entity = this.#includedEntites.get(alias);
+		if (!entity) {
+			throw new Error(`Unrecognized entity alias used: '${alias}'`);
+		}
+
+		const fieldSet = getEntityFields(entity as EntityFromShape<Shapes[Alias]>);
+
+		const selectedFields = this.#selectedFields.get(alias) ?? [];
+		this.#selectedFields.set(alias, selectedFields);
+		selectedFields.push(...fieldSet.keys());
+
+		return this as unknown as JoinedQueryBuilder<
+			Shapes,
+			ResultShape & {
+				[key in Alias]: Pick<Shapes[Alias], string & keyof Shapes[Alias]>;
+			}
 		>;
 	}
 
@@ -331,16 +349,23 @@ class JoinedQueryBuilder<
 	}
 
 	getPreparedQuery(): PreparedQuery {
+		const selectedFields = this.#getSelectedFields();
+		const selectedComputedFields = this.#getSelectedComputedFields();
+
+		if (selectedFields.length === 0 && selectedComputedFields.length === 0) {
+			throw new Error(`No fields selected, cannot perform select query`);
+		}
+
 		return joinAllQueries([
 			sql` SELECT ${sql.asUnescaped(
 				[
-					...this.#getSelectedFields(),
+					...selectedFields,
 
 					// Insert a trailing comma if computed fields will follow
-					...(this.#selectedComputedFields.size === 0 ? [] : [""]),
+					...(selectedComputedFields.length === 0 ? [] : [""]),
 				].join(", "),
 			)} `,
-			...this.#getSelectedComputedFields(),
+			...selectedComputedFields,
 			sql` FROM ${sql.getEntityRef(
 				this.targetFromEntity,
 				this.targetEntityAlias,

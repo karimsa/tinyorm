@@ -1,7 +1,18 @@
-import { isJsonRef, JsonRef, PreparedQuery, readJsonRef, sql } from "./queries";
+import {
+	FinalizedQuery,
+	finalizeQuery,
+	isJsonRef,
+	joinAllQueries,
+	JsonRef,
+	PreparedQuery,
+	readJsonRef,
+	sql,
+} from "./queries";
 import { assertCase } from "./utils";
 
-const fieldRegistry = new WeakMap<object, Map<string, ColumnOptions>>();
+const Registry = process.env.NODE_ENV === "test" ? Map : WeakMap;
+
+const fieldRegistry = new Registry<object, Map<string, ColumnOptions>>();
 
 export function Entity({
 	schema,
@@ -18,33 +29,49 @@ export function Entity({
 	};
 }
 
-const indexRegistry = new WeakMap<object, Map<string, PreparedQuery>>();
+const indexRegistry = new Registry<object, Map<string, FinalizedQuery>>();
 
 export function Index<Shape>(
-	_: EntityFromShape<Shape>,
+	entity: EntityFromShape<Shape>,
 ): (
 	name: string,
-	columns: PreparedQuery | (keyof Shape | JsonRef<Shape>)[],
+	columns: PreparedQuery | ((string & keyof Shape) | JsonRef<Shape>)[],
 ) => (target: EntityFromShape<Shape>) => void {
 	return (name, columns) => {
 		return (target) => {
 			const indexQuery = Array.isArray(columns)
 				? sql.unescaped(
 						`(${columns
-							.map((column) => {
-								if (isJsonRef(column)) {
-									return readJsonRef(column);
-								}
-								return column;
-							})
+							.map((column) =>
+								isJsonRef(column) ? readJsonRef(column) : `"${column}"`,
+							)
 							.join(", ")})`,
 				  )
 				: columns;
+			const finalizedQuery = finalizeQuery(
+				joinAllQueries([
+					sql`CREATE INDEX IF NOT EXISTS "${sql.asUnescaped(
+						name,
+					)}" ON ${entity} `,
+					indexQuery,
+				]),
+			);
+			if (finalizedQuery.values.length > 0) {
+				throw new Error(
+					`Index '${name}' on '${entity.tableName}' is invalid: your index must not contain any prepared variables`,
+				);
+			}
 
 			const indexSet =
-				indexRegistry.get(target) ?? new Map<string, PreparedQuery>();
+				indexRegistry.get(target) ?? new Map<string, FinalizedQuery>();
 			indexRegistry.set(target, indexSet);
-			indexSet.set(name, indexQuery);
+
+			if (indexSet.has(name)) {
+				throw new Error(
+					`Index '${name}' on '${entity.tableName}' was specified twice`,
+				);
+			}
+			indexSet.set(name, finalizedQuery);
 		};
 	};
 }
@@ -96,4 +123,8 @@ export function getEntityFields<Shape>(entity: EntityFromShape<Shape>) {
 		);
 	}
 	return fieldSet as unknown as Map<string & keyof Shape, ColumnOptions>;
+}
+
+export function getEntityIndices(entity: EntityFromShape<unknown>) {
+	return indexRegistry.get(entity) ?? new Map<string, FinalizedQuery>();
 }
