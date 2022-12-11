@@ -383,12 +383,16 @@ export const sql = Object.assign(
 				const lastText = preparedQuery.text.pop() ?? "";
 				const mergedParam = sql.wrapQuery(
 					lastText,
-					param,
+					sql.cloneQuery(param),
 					templateStrings[index + 1],
 				);
 
 				preparedQuery.text.push(...mergedParam.text);
 				preparedQuery.params.push(...mergedParam.params);
+			} else if (isFinalizedQuery(param)) {
+				throw new Error(
+					`Cannot inline a finalized query into a prepared query`,
+				);
 			} else {
 				const queryVar = getQueryVariable(param ?? null);
 
@@ -417,6 +421,16 @@ export const sql = Object.assign(
 			text: [text],
 			params: [],
 		}),
+
+		/**
+		 * Clones a query.
+		 */
+		cloneQuery(query: PreparedQuery): PreparedQuery {
+			return {
+				text: [...query.text],
+				params: [...query.params],
+			};
+		},
 
 		/**
 		 * Adds given prefix to the query.
@@ -478,6 +492,15 @@ export function finalizeQuery(query: PreparedQuery): FinalizedQuery {
 		}
 	}
 	return finalizedQuery;
+}
+
+export function isFinalizedQuery(query: unknown): query is FinalizedQuery {
+	return (
+		typeof query === "object" &&
+		query !== null &&
+		typeof (query as FinalizedQuery).text === "string" &&
+		Array.isArray((query as FinalizedQuery).values)
+	);
 }
 
 export function isPreparedQuery(query: unknown): query is PreparedQuery {
