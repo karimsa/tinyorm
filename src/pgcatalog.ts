@@ -1,10 +1,11 @@
 import { Entity, Column } from "./entity";
 
+// This entity represents the shape of postgresql's internal information_schema.schemata table
 export class SchemaCatalog extends Entity({
 	schema: "information_schema",
 	tableName: "schemata",
 }) {
-	@Column({type:'text'})
+	@Column({ type: 'text' })
 	readonly schema_name: string;
 }
 
@@ -13,10 +14,10 @@ export class TableCatalog extends Entity({
 	tableName: "tables",
 }) {
 	@Column({ type: 'text' })
-	table_schema: string;
+	readonly table_schema: string;
 
 	@Column({type:'text'})
-	table_name: string;
+	readonly table_name: string;
 }
 
 export class TableColumnCatalog extends Entity({
@@ -24,22 +25,22 @@ export class TableColumnCatalog extends Entity({
 	tableName: "columns",
 }) {
 	@Column({ type: 'text' })
-	table_schema: string;
+	readonly table_schema: string;
 
 	@Column({type:'text'})
-	table_name: string;
+	readonly table_name: string;
 
 	@Column({type:'text'})
-	column_name: string;
+	readonly column_name: string;
 
 	@Column({type:'text'})
-	is_nullable: string;
+	readonly is_nullable: string;
 
 	@Column({type:'text'})
-	column_default: string;
+	readonly column_default: string;
 
 	@Column({type:'text'})
-	data_type: string;
+	readonly data_type: string;
 }
 
 export class TableIndexCatalog extends Entity({
@@ -47,14 +48,14 @@ export class TableIndexCatalog extends Entity({
 	tableName: "pg_indexes",
 }) {
 	@Column({type:'text'})
-	schemaname: string;
+	readonly schemaname: string;
 
 	@Column({type:'text'})
-	tablename: string;
+	readonly tablename: string;
 
 	@Column({type:'text'})
-	indexname: string;
+	readonly indexname: string;
 
 	@Column({type:'text'})
-	indexdef: string;
+	readonly indexdef: string;
 }

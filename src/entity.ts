@@ -17,7 +17,7 @@ import { assertCase } from "./utils";
 
 const Registry = process.env.NODE_ENV === "test" ? Map : WeakMap;
 
-const fieldRegistry = new Registry<object, Map<string, ColumnOptions>>();
+const fieldRegistry = new Registry<object, Map<string, ColumnStoredOptions>>();
 
 export function Entity({
 	schema,
@@ -89,18 +89,35 @@ type PostgresColumnType =
 	| PostgresNumericColumnType
 	| PostgresJsonColumnType;
 
+export interface ColumnStoredOptions {
+	type: PostgresColumnType | `${PostgresColumnType}[]`;
+	nullable?: boolean;
+	defaultValue?: PreparedQuery;
+}
+
 export interface ColumnOptions {
 	type: PostgresColumnType | `${PostgresColumnType}[]`;
 	nullable?: boolean;
+	defaultValue?: PreparedQuery;
 }
 
 export function Column(options: ColumnOptions) {
 	return function (target: object, propertyKey: string) {
 		assertCase("property name", propertyKey);
 
-		const fieldSet = fieldRegistry.get(target) ?? new Map();
-		fieldSet.set(propertyKey, options);
+		if (Number(options.defaultValue?.params.length) > 0) {
+			throw new Error(
+				`Column '${propertyKey}' has a default value that contains prepared variables`,
+			);
+		}
+
+		const fieldSet =
+			fieldRegistry.get(target) ?? new Map<string, ColumnStoredOptions>();
 		fieldRegistry.set(target, fieldSet);
+		fieldSet.set(propertyKey, {
+			...options,
+			defaultValue: options.defaultValue ? options.defaultValue : undefined,
+		});
 	};
 }
 
@@ -123,7 +140,7 @@ export function isEntity(entity: any): entity is EntityFromShape<unknown> {
 	);
 }
 
-export function getEntityFields<Shape>(entity: EntityFromShape<Shape>) {
+export function getEntityFields(entity: EntityFromShape<unknown>) {
 	const fieldSet = fieldRegistry.get(entity.prototype);
 	if (!fieldSet) {
 		throw new Error(
@@ -135,7 +152,7 @@ export function getEntityFields<Shape>(entity: EntityFromShape<Shape>) {
 			`Found empty field set for entity with name '${entity.tableName}'`,
 		);
 	}
-	return fieldSet as unknown as Map<string & keyof Shape, ColumnOptions>;
+	return fieldSet;
 }
 
 export function getEntityIndices(entity: EntityFromShape<unknown>) {

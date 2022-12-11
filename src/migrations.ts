@@ -1,5 +1,5 @@
 import { Connection, ConnectionPool } from "./connection";
-import { EntityFromShape, getEntityIndices } from "./entity";
+import { EntityFromShape, getEntityFields, getEntityIndices } from "./entity";
 import { logger } from "./logger";
 import {
 	SchemaCatalog,
@@ -16,7 +16,11 @@ export type MigrationReason =
 	| "Missing Index"
 	| "Unused Index"
 	| "New Index"
-	| "Index Updated";
+	| "Index Updated"
+	| "Unused Column"
+	| "New Column"
+	| "Column Default Updated"
+	| "Column Type Updated";
 
 export interface SuggestedMigration {
 	reason: MigrationReason;
@@ -137,7 +141,7 @@ export class MigrationGenerator {
 	async getTableColumnMigrations(entity: EntityFromShape<unknown>) {
 		const migrations: SuggestedMigration[] = [];
 
-		// TODO
+		const columnSet = getEntityFields(entity);
 		const existingColumnData = await createJoinBuilder()
 			.from(TableColumnCatalog, "col")
 			.selectAll("col")
@@ -148,6 +152,84 @@ export class MigrationGenerator {
 					.Equals(entity.tableName),
 			)
 			.getMany(this.connection);
+
+		for (const column of existingColumnData) {
+			const currentColumn = columnSet.get(column.col.column_name);
+
+			if (currentColumn) {
+				// Columns that don't have a default value anymore
+				if (column.col.column_default && !currentColumn.defaultValue) {
+					migrations.push({
+						reason: "Column Default Updated",
+						queries: [
+							finalizeQuery(
+								sql`ALTER TABLE "${sql.asUnescaped(
+									entity.schema,
+								)}"."${sql.asUnescaped(
+									entity.tableName,
+								)}" ALTER COLUMN "${sql.asUnescaped(
+									column.col.column_name,
+								)}" DROP DEFAULT`,
+							),
+						],
+					});
+				}
+
+				// Columns that changed their default values
+				else if (
+					currentColumn.defaultValue &&
+					column.col.column_default !==
+						currentColumn.defaultValue?.text.join("")
+				) {
+					migrations.push({
+						reason: "Column Default Updated",
+						queries: [
+							finalizeQuery(
+								sql`ALTER TABLE "${sql.asUnescaped(
+									entity.schema,
+								)}"."${sql.asUnescaped(
+									entity.tableName,
+								)}" ALTER COLUMN "${sql.asUnescaped(
+									column.col.column_name,
+								)}" SET DEFAULT ${currentColumn.defaultValue}`,
+							),
+						],
+					});
+				}
+
+				// Columns that changed their types
+				if (column.col.data_type !== currentColumn.type) {
+					migrations.push({
+						reason: "Column Type Updated",
+						queries: [
+							finalizeQuery(
+								sql`ALTER TABLE "${sql.asUnescaped(
+									entity.schema,
+								)}"."${sql.asUnescaped(
+									entity.tableName,
+								)}" ALTER COLUMN "${sql.asUnescaped(
+									column.col.column_name,
+								)}" TYPE ${sql.asUnescaped(currentColumn.type)}`,
+							),
+						],
+					});
+				}
+			} else {
+				// Columns that need to be dropped
+				migrations.push({
+					reason: "Unused Column",
+					queries: [
+						finalizeQuery(
+							sql`ALTER TABLE "${sql.asUnescaped(
+								entity.schema,
+							)}"."${sql.asUnescaped(
+								entity.tableName,
+							)}" DROP COLUMN "${sql.asUnescaped(column.col.column_name)}"`,
+						),
+					],
+				});
+			}
+		}
 
 		return migrations;
 	}
