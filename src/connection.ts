@@ -20,56 +20,12 @@ import {
 	sql,
 } from "./queries";
 import { createJoinBuilder, QueryError } from "./query-builder";
-
-class SchemaCatalog extends Entity({
-	schema: "information_schema",
-	tableName: "schemata",
-}) {
-	@Column({type:'text'})
-	readonly schema_name: string;
-}
-
-class TableCatalog extends Entity({
-	schema: "information_schema",
-	tableName: "tables",
-}) {
-	@Column({ type: 'text' })
-	table_schema: string;
-	@Column({type:'text'})
-	table_name: string;
-}
-
-class TableColumnSchema extends Entity({
-	schema: "information_schema",
-	tableName: "columns",
-}) {
-	@Column({ type: 'text' })
-	table_schema: string;
-	@Column({type:'text'})
-	table_name: string;
-	@Column({type:'text'})
-	column_name: string;
-	@Column({type:'text'})
-	is_nullable: string;
-	@Column({type:'text'})
-	column_default: string;
-	@Column({type:'text'})
-	data_type: string;
-}
-
-class TableIndexCatalog extends Entity({
-	schema: "pg_catalog",
-	tableName: "pg_indexes",
-}) {
-	@Column({type:'text'})
-	schemaname: string;
-	@Column({type:'text'})
-	tablename: string;
-	@Column({type:'text'})
-	indexname: string;
-	@Column({type:'text'})
-	indexdef: string;
-}
+import {
+	SchemaCatalog,
+	TableCatalog,
+	TableColumnCatalog,
+	TableIndexCatalog,
+} from "./pgcatalog";
 
 @Index(Migrations)('idx_migration_name', ['name'], {unique: true})
 class Migrations extends Entity({
@@ -281,7 +237,7 @@ export class Connection {
 		}
 
 		const existingColumnData = await createJoinBuilder()
-			.from(TableColumnSchema, "col")
+			.from(TableColumnCatalog, "col")
 			.selectAll("col")
 			.where((where) =>
 				where("col", "table_schema")
