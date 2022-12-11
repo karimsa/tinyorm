@@ -17,16 +17,7 @@ import {
 	WhereQueryBuilder,
 } from "./where-builder";
 import { ZodSchema } from "zod";
-
-export class QueryError extends Error {
-	constructor(
-		message: string,
-		private readonly query: FinalizedQuery,
-		private readonly internalError: unknown,
-	) {
-		super(message);
-	}
-}
+import { Connection, QueryError } from "./connection";
 
 abstract class BaseQueryBuilder<ResultShape> {
 	abstract buildOne(row: unknown): ResultShape | null;
@@ -42,7 +33,14 @@ abstract class BaseQueryBuilder<ResultShape> {
 			.filter((row): row is ResultShape => !!row);
 	}
 
-	private async executeQuery(client: PostgresClient, query: FinalizedQuery) {
+	private async executeQuery(
+		client: PostgresClient | Connection,
+		query: FinalizedQuery,
+	) {
+		if (client instanceof Connection) {
+			return client.query(query);
+		}
+
 		try {
 			const { rows } = await client.query(query);
 			return rows;
@@ -55,7 +53,9 @@ abstract class BaseQueryBuilder<ResultShape> {
 		}
 	}
 
-	async getOne(client: PostgresClient): Promise<ResultShape | null> {
+	async getOne(
+		client: PostgresClient | Connection,
+	): Promise<ResultShape | null> {
 		const query = this.getQuery();
 		query.text += " LIMIT 1";
 
@@ -66,7 +66,9 @@ abstract class BaseQueryBuilder<ResultShape> {
 		return this.buildOne(rows[0]);
 	}
 
-	async getOneOrFail(client: PostgresClient): Promise<ResultShape> {
+	async getOneOrFail(
+		client: PostgresClient | Connection,
+	): Promise<ResultShape> {
 		const result = await this.getOne(client);
 		if (!result) {
 			throw new Error("Failed to find any results to query");
@@ -74,14 +76,14 @@ abstract class BaseQueryBuilder<ResultShape> {
 		return result;
 	}
 
-	async getMany(client: PostgresClient): Promise<ResultShape[]> {
+	async getMany(client: PostgresClient | Connection): Promise<ResultShape[]> {
 		const query = this.getQuery();
 		const rows = await this.executeQuery(client, query);
 		return this.buildMany(rows);
 	}
 }
 
-class QueryBuilder<
+export class QueryBuilder<
 	Shape extends object,
 	ResultShape,
 > extends BaseQueryBuilder<ResultShape> {
@@ -137,7 +139,7 @@ type EntityAlias<Alias, Shapes extends Record<string, object>> = Alias &
 		? { invalid: "Cannot reuse an existing alias" }
 		: {});
 
-class JoinedQueryBuilder<
+export class JoinedQueryBuilder<
 	Shapes extends Record<string, object>,
 	ResultShape,
 > extends BaseQueryBuilder<ResultShape> {

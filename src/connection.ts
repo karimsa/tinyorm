@@ -8,7 +8,6 @@ import {
 	Entity,
 	EntityFromShape,
 	getEntityFields,
-	getEntityIndices,
 	Index,
 } from "./entity";
 import { debug } from "./logger";
@@ -19,13 +18,17 @@ import {
 	PostgresValueType,
 	sql,
 } from "./queries";
-import { createJoinBuilder, QueryError } from "./query-builder";
-import {
-	SchemaCatalog,
-	TableCatalog,
-	TableColumnCatalog,
-	TableIndexCatalog,
-} from "./pgcatalog";
+import { MigrationGenerator, SuggestedMigration } from "./migrations";
+
+export class QueryError extends Error {
+	constructor(
+		message: string,
+		private readonly query: FinalizedQuery,
+		private readonly internalError: unknown,
+	) {
+		super(message);
+	}
+}
 
 @Index(Migrations)('idx_migration_name', ['name'], {unique: true})
 class Migrations extends Entity({
@@ -38,19 +41,6 @@ class Migrations extends Entity({
 	readonly started_at: Date;
 	@Column({ type: 'timestamp without time zone', nullable: true })
 	readonly completed_at: Date | null;
-}
-
-export type MigrationReason =
-	| "Missing Schema"
-	| "Missing Table"
-	| "Missing Index"
-	| "Unused Index"
-	| "New Index"
-	| "Index Updated";
-
-export interface SuggestedMigration {
-	reason: MigrationReason;
-	queries: FinalizedQuery[];
 }
 
 // rome-ignore lint/suspicious/noExplicitAny: This is a type-guard
@@ -83,12 +73,12 @@ export class Connection {
 
 		try {
 			debug("query", `Running query`, { query });
-			const res = await this.client.query(query);
+			const { rows } = await this.client.query(query);
 			debug("query", `Query completed`, {
 				query,
 				duration: Date.now() - startTime,
 			});
-			return res;
+			return rows;
 		} catch (err) {
 			debug("errors", `Query failed`, {
 				query,
@@ -125,131 +115,16 @@ export class Connection {
 		);
 	}
 
-	async getMigrationQueries(
-		entity: EntityFromShape<unknown>,
-	): Promise<SuggestedMigration[]> {
-		const migrationQueries: SuggestedMigration[] = [];
+	async getMigrationQueries(entity: EntityFromShape<unknown>) {
+		return new MigrationGenerator(this).getMigrationQueries(entity);
+	}
 
-		const schemaInfo = await createJoinBuilder()
-			.from(SchemaCatalog, "schema_entry")
-			.selectAll("schema_entry")
-			.where((where) =>
-				where("schema_entry", "schema_name").Equals(entity.schema),
-			)
-			.getOne(this.client);
-
-		// Creation of schema
-		if (!schemaInfo) {
-			migrationQueries.push({
-				reason: "Missing Schema",
-				queries: [
-					finalizeQuery(
-						sql`CREATE SCHEMA IF NOT EXISTS "${sql.asUnescaped(
-							entity.schema,
-						)}"`,
-					),
-				],
-			});
-		}
-
-		// Creation of table from scratch
-		const tableInfo = await createJoinBuilder()
-			.from(TableCatalog, "table_entry")
-			.selectAll("table_entry")
-			.where((where) =>
-				where("table_entry", "table_schema")
-					.Equals(entity.schema)
-					.andWhere("table_entry", "table_name")
-					.Equals(entity.tableName),
-			)
-			.getOne(this.client);
-		if (!tableInfo) {
-			migrationQueries.push({
-				reason: "Missing Table",
-				queries: [
-					finalizeQuery(ConnectionPool.getCreateTableQuery(entity, false)),
-				],
-			});
-
-			for (const query of getEntityIndices(entity).values()) {
-				migrationQueries.push({
-					reason: "Missing Index",
-					queries: [query],
-				});
-			}
-			return migrationQueries;
-		}
-
-		// Identify index changes
-		const indexSet = getEntityIndices(entity);
-		const existingIndexData = await createJoinBuilder()
-			.from(TableIndexCatalog, "index_entry")
-			.selectAll("index_entry")
-			.where((where) =>
-				where("index_entry", "schemaname")
-					.Equals(entity.schema)
-					.andWhere("index_entry", "tablename")
-					.Equals(entity.tableName),
-			)
-			.getMany(this.client);
-
-		for (const index of existingIndexData) {
-			const currentIndex = indexSet.get(index.index_entry.indexname);
-			if (currentIndex) {
-				if (index.index_entry.indexdef !== currentIndex.text) {
-					migrationQueries.push({
-						reason: "Index Updated",
-						queries: [
-							finalizeQuery(
-								sql`DROP INDEX IF EXISTS "${sql.asUnescaped(
-									entity.schema,
-								)}"."${sql.asUnescaped(index.index_entry.indexname)}"`,
-							),
-							currentIndex,
-						],
-					});
-				}
-			} else {
-				// Indices that need to be dropped
-				migrationQueries.push({
-					reason: "Unused Index",
-					queries: [
-						finalizeQuery(
-							sql`DROP INDEX IF EXISTS "${sql.asUnescaped(
-								entity.schema,
-							)}"."${sql.asUnescaped(index.index_entry.indexname)}"`,
-						),
-					],
-				});
+	async initMigrations() {
+		for (const { queries } of await this.getMigrationQueries(Migrations)) {
+			for (const query of queries) {
+				await this.query(query);
 			}
 		}
-		for (const [indexName, indexQuery] of indexSet.entries()) {
-			if (
-				!existingIndexData.find(
-					(row) => row.index_entry.indexname === indexName,
-				)
-			) {
-				migrationQueries.push({
-					reason: "New Index",
-					queries: [indexQuery],
-				});
-			}
-		}
-
-		const existingColumnData = await createJoinBuilder()
-			.from(TableColumnCatalog, "col")
-			.selectAll("col")
-			.where((where) =>
-				where("col", "table_schema")
-					.Equals(entity.schema)
-					.andWhere("col", "table_name")
-					.Equals(entity.tableName),
-			)
-			.getMany(this.client);
-
-		// TODO: Generate column migrations
-
-		return migrationQueries;
 	}
 
 	async unsafe_resetAllMigrations() {
@@ -268,13 +143,6 @@ export class Connection {
 		name: string,
 		queries: (FinalizedQuery | SuggestedMigration)[],
 	) {
-		// Auto-migrate the migrations table
-		for (const { queries } of await this.getMigrationQueries(Migrations)) {
-			for (const query of queries) {
-				await this.query(query);
-			}
-		}
-
 		// Create migration entry to avoid duplicate runs
 		try {
 			await this.insertOne(Migrations, {
