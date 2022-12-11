@@ -41,8 +41,9 @@ export function Index<Shape>(
 ): (
 	name: string,
 	columns: PreparedQuery | ((string & keyof Shape) | JsonRef<Shape>)[],
+	options?: { unique: boolean },
 ) => (target: EntityFromShape<Shape>) => void {
-	return (name, columns) => {
+	return (name, columns, options) => {
 		return (target) => {
 			const indexQuery = Array.isArray(columns)
 				? sql.unescaped(
@@ -55,9 +56,9 @@ export function Index<Shape>(
 				: columns;
 			const finalizedQuery = finalizeQuery(
 				joinAllQueries([
-					sql`CREATE INDEX IF NOT EXISTS "${sql.asUnescaped(
-						name,
-					)}" ON ${entity} `,
+					sql`CREATE${sql.asUnescaped(
+						options?.unique ? " UNIQUE" : "",
+					)} INDEX IF NOT EXISTS "${sql.asUnescaped(name)}" ON ${entity} `,
 					indexQuery,
 				]),
 			);
