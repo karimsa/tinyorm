@@ -424,7 +424,7 @@ export class ConnectionPool {
 						sql.unescaped(
 							`"${column}" ${options.type} ${
 								options.nullable ? "" : "NOT NULL"
-							} ${index === columns.length - 1 ? "" : ", "}`,
+							}${index === columns.length - 1 ? "" : ", "}`,
 						),
 					),
 				),
@@ -441,11 +441,11 @@ export class ConnectionPool {
 		const columns = [...fieldSet.keys()];
 
 		return joinAllQueries([
-			sql`INSERT INTO ${sql.getEntityRef(entity)}`,
+			sql`INSERT INTO ${sql.getEntityRef(entity)} `,
 			sql.brackets(
 				sql.unescaped(columns.map((column) => `"${column}"`).join(", ")),
 			),
-			sql.unescaped(`VALUES`),
+			sql.unescaped(` VALUES `),
 			sql.brackets(
 				joinAllQueries(
 					columns.map(
