@@ -16,7 +16,7 @@ describe("sql", () => {
 					AND name = ${"test"}
 					AND is_row = ${true}
 					AND stuff = ${undefined}
-					AND gah @> ${{ bar: true }}
+					AND ${sql`gah @> ${{ bar: true }}`}
 			`),
 		).toEqual({
 			text: `

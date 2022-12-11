@@ -358,6 +358,7 @@ export const sql = Object.assign(
 		...parameters: (
 			| EntityFromShape<unknown>
 			| PostgresValueType
+			| PreparedQuery
 			| QueryVariable
 			| UnescapedVariable
 			| undefined
@@ -378,6 +379,16 @@ export const sql = Object.assign(
 			} else if (isJsonRef(param)) {
 				preparedQuery.text.push(templateStrings[index + 1]);
 				preparedQuery.params.push(sql.asUnescaped(param[kJsonRef]));
+			} else if (isPreparedQuery(param)) {
+				const lastText = preparedQuery.text.pop() ?? "";
+				const mergedParam = sql.wrapQuery(
+					lastText,
+					param,
+					templateStrings[index + 1],
+				);
+
+				preparedQuery.text.push(...mergedParam.text);
+				preparedQuery.params.push(...mergedParam.params);
 			} else {
 				const queryVar = getQueryVariable(param ?? null);
 
@@ -467,6 +478,15 @@ export function finalizeQuery(query: PreparedQuery): FinalizedQuery {
 		}
 	}
 	return finalizedQuery;
+}
+
+export function isPreparedQuery(query: unknown): query is PreparedQuery {
+	return (
+		typeof query === "object" &&
+		query !== null &&
+		Array.isArray((query as PreparedQuery).text) &&
+		Array.isArray((query as PreparedQuery).params)
+	);
 }
 
 export function joinQueries(
