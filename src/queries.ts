@@ -298,8 +298,11 @@ const getEntityRef = (
 };
 
 const kJsonRef = Symbol("jsonRef");
+const kJsonEntityRef = Symbol("jsonEntityRef");
 
-export type JsonRef = Record<typeof kJsonRef, string>;
+export type JsonRef<Shape> = Record<typeof kJsonRef, string> & {
+	[kJsonEntityRef]: Shape;
+};
 
 const createJsonRefProxy = (jsonRef: {
 	column: string;
@@ -324,19 +327,19 @@ const createJsonRefProxy = (jsonRef: {
 		},
 	);
 
-type JsonRefBuilder<Shape> = JsonRef &
+type JsonRefBuilder<EntityShape, Shape> = JsonRef<EntityShape> &
 	(Shape extends string
 		? {}
 		: {
-				[Key in keyof Shape]: JsonRefBuilder<Shape[Key]>;
+				[Key in keyof Shape]: JsonRefBuilder<EntityShape, Shape[Key]>;
 		  });
 
-export function readJsonRef(value: JsonRef): string {
+export function readJsonRef(value: JsonRef<unknown>): string {
 	return value[kJsonRef];
 }
 
 // rome-ignore lint/suspicious/noExplicitAny: This is a type-guard.
-export function isJsonRef(value: any): value is JsonRef {
+export function isJsonRef(value: any): value is JsonRef<unknown> {
 	return (
 		typeof value === "object" &&
 		value !== null &&
@@ -393,7 +396,7 @@ export const sql = Object.assign(
 			return createJsonRefProxy({
 				column: "",
 				jsonPath: [],
-			}) as unknown as JsonRefBuilder<Shape>;
+			}) as unknown as JsonRefBuilder<Shape, Shape>;
 		},
 
 		unescaped: (text: string): PreparedQuery => ({

@@ -10,6 +10,9 @@ import {
 	PostgresBooleanColumnType,
 	PostgresDateColumnType,
 	PostgresStringColumnTypes,
+	JsonRef,
+	isJsonRef,
+	readJsonRef,
 } from "./queries";
 import { isElementOfArray, JsonKeys } from "./utils";
 
@@ -79,7 +82,7 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 			Key extends string & keyof Shapes[Alias],
 		>(
 			entityName: Alias,
-			field: Key,
+			field: Key | JsonRef<Shapes[Alias]>,
 		) => {
 			if (this.#binaryOperator || this.#queries.length > 0) {
 				throw new Error("Cannot re-open where builder");
@@ -123,7 +126,7 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 	andWhere<
 		Alias extends string & keyof Shapes,
 		Key extends string & keyof Shapes[Alias],
-	>(entityName: Alias, field: Key) {
+	>(entityName: Alias, field: Key | JsonRef<Shapes[Alias]>) {
 		if (this.#binaryOperator === "OR") {
 			throw new Error(
 				`Cannot convert ${this.#binaryOperator} where builder into 'AND WHERE'`,
@@ -143,7 +146,7 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 	orWhere<
 		Alias extends string & keyof Shapes,
 		Key extends string & keyof Shapes[Alias],
-	>(entityName: Alias, field: Key) {
+	>(entityName: Alias, field: Key | JsonRef<Shapes[Alias]>) {
 		if (this.#binaryOperator === "AND") {
 			throw new Error(
 				`Cannot convert ${this.#binaryOperator} where builder into 'OR WHERE'`,
@@ -159,7 +162,10 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 		>;
 	}
 
-	#getColumnName(alias: string, field: string) {
+	#getColumnName(alias: string, field: string | JsonRef<unknown>) {
+		if (isJsonRef(field)) {
+			return sql.asUnescaped(`"${alias}".${readJsonRef(field)}`);
+		}
 		return sql.asUnescaped(`"${alias}"."${field}"`);
 	}
 
@@ -220,7 +226,7 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 
 	#openComparator<Alias extends string & keyof Shapes>(
 		alias: Alias,
-		field: string,
+		field: string | JsonRef<unknown>,
 	) {
 		const entity = this.#knownEntities.get(alias);
 		if (!entity) {

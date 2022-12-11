@@ -24,7 +24,7 @@ export function Index<Shape>(
 	_: EntityFromShape<Shape>,
 ): (
 	name: string,
-	columns: PreparedQuery | (keyof Shape | JsonRef)[],
+	columns: PreparedQuery | (keyof Shape | JsonRef<Shape>)[],
 ) => (target: EntityFromShape<Shape>) => void {
 	return (name, columns) => {
 		return (target) => {

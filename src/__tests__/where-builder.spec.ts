@@ -1,21 +1,25 @@
 import { describe, it } from "@jest/globals";
-import { createWhereBuilder, finalizeQuery } from "../";
+import { createWhereBuilder, finalizeQuery, sql, Entity } from "../";
 import { expectQuery } from "./util";
 
 describe("WhereBuilder", () => {
+	class User extends Entity({ schema: "public", tableName: "users" }) {
+		id: string;
+	}
+	class Post extends Entity({ schema: "public", tableName: "posts" }) {
+		id: string;
+		author_id: string;
+		content: {
+			type: "text" | "image";
+			value: string;
+			nestedObject: { hello: string; isBool: boolean };
+			nestedArray: string[];
+		};
+	}
 	const where = createWhereBuilder<{
 		user: { id: string; name: string; status: "Active" | "Inactive" };
 		userPost: { user_id: string; post_id: string; reactions: string[] };
-		post: {
-			id: string;
-			author_id: string;
-			content: {
-				type: "text" | "image";
-				value: string;
-				nestedObject: { hello: string; isBool: boolean };
-				nestedArray: string[];
-			};
-		};
+		post: Post;
 	}>({
 		user: { schema: "app", tableName: "user" },
 		userPost: { schema: "app", tableName: "user_post" },
@@ -103,8 +107,7 @@ describe("WhereBuilder", () => {
 		});
 		expectQuery(
 			finalizeQuery(
-				where("post", "content")
-					.JsonPath("nestedObject.isBool")
+				where("post", sql.json(Post).content.nestedObject.isBool)
 					.CastAs("boolean")
 					.Equals(true)
 					.getQuery(),
