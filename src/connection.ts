@@ -73,10 +73,11 @@ export class Connection {
 
 		try {
 			debug("query", `Running query`, { query });
-			const { rows } = await this.client.query(query);
+			const { rows, rowCount } = await this.client.query(query);
 			debug("query", `Query completed`, {
 				query,
 				duration: Date.now() - startTime,
+				rowCount,
 			});
 			return rows;
 		} catch (err) {
@@ -283,7 +284,7 @@ export class ConnectionPool {
 					columns.map(
 						(column, index) =>
 							sql`${
-								entry[column] as unknown as PostgresValueType
+								(entry as Record<string, PostgresValueType>)[column]
 							}${sql.asUnescaped(index === columns.length - 1 ? "" : ", ")}`,
 					),
 				),
