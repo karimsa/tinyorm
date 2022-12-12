@@ -1,10 +1,10 @@
 import { describe, it } from "@jest/globals";
 import {
 	createJoinWhereBuilder,
+	createSingleWhereBuilder,
+	Entity,
 	finalizeQuery,
 	sql,
-	Entity,
-	createSingleWhereBuilder,
 } from "../";
 import { expectQuery } from "./util";
 

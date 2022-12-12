@@ -1,7 +1,7 @@
 import {
 	Pool as PostgresPool,
-	PoolConfig as PostgresPoolOptions,
 	PoolClient as PostgresClient,
+	PoolConfig as PostgresPoolOptions,
 } from "pg";
 import {
 	Column,
@@ -11,13 +11,13 @@ import {
 	Index,
 } from "./entity";
 import { debug } from "./logger";
+import { MigrationGenerator, SuggestedMigration } from "./migrations";
 import {
 	FinalizedQuery,
 	finalizeQuery,
 	PostgresValueType,
 	sql,
 } from "./queries";
-import { MigrationGenerator, SuggestedMigration } from "./migrations";
 import {
 	createSingleWhereBuilder,
 	SingleWhereQueryBuilder,

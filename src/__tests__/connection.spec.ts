@@ -1,6 +1,6 @@
 import { describe, it } from "@jest/globals";
-import { Entity, Column, finalizeQuery } from "../";
-import { ConnectionPool, createConnectionPool } from "../connection";
+import { Column, Entity, finalizeQuery } from "../";
+import { ConnectionPool } from "../connection";
 import { expectQuery } from "./util";
 
 class TestUser extends Entity({ schema: "public", tableName: "test_user" }) {

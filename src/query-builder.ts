@@ -1,3 +1,6 @@
+import { PoolClient as PostgresClient } from "pg";
+import { ZodSchema } from "zod";
+import { Connection, QueryError } from "./connection";
 import { EntityFromShape, getEntityFields } from "./entity";
 import {
 	FinalizedQuery,
@@ -7,17 +10,14 @@ import {
 	sql,
 } from "./queries";
 import { assertCase } from "./utils";
-import { PoolClient as PostgresClient } from "pg";
 import {
 	AndWhereQueryBuilder,
 	createJoinWhereBuilder,
-	OrWhereQueryBuilder,
-	JoinWhereQueryBuilder,
-	SingleWhereQueryBuilder,
 	createSingleWhereBuilder,
+	JoinWhereQueryBuilder,
+	OrWhereQueryBuilder,
+	SingleWhereQueryBuilder,
 } from "./where-builder";
-import { ZodSchema } from "zod";
-import { Connection, QueryError } from "./connection";
 
 abstract class BaseQueryBuilder<ResultShape> {
 	abstract buildOne(row: unknown): ResultShape | null;

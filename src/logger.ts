@@ -1,5 +1,5 @@
-import pino from "pino";
 import createDebug from "debug";
+import pino from "pino";
 
 const transportOptions =
 	process.env.NODE_ENV === "test"

@@ -1,4 +1,4 @@
-import { Entity, Column } from "./entity";
+import { Column, Entity } from "./entity";
 
 // This entity represents the shape of postgresql's internal information_schema.schemata table
 export class SchemaCatalog extends Entity({

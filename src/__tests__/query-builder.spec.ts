@@ -1,14 +1,14 @@
-import {
-	Entity,
-	Column,
-	sql,
-	createSelectBuilder,
-	createJoinBuilder,
-	Index,
-} from "..";
-import { expectQuery, getResolvedType } from "./util";
-import { assertType } from "../utils";
 import { z } from "zod";
+import {
+	Column,
+	createJoinBuilder,
+	createSelectBuilder,
+	Entity,
+	Index,
+	sql,
+} from "..";
+import { assertType } from "../utils";
+import { expectQuery, getResolvedType } from "./util";
 
 @Index(User)('idx_status', sql`(status)`)
 class User extends Entity({ schema: "app", tableName: "user" }) {

@@ -1,5 +1,5 @@
-import { FinalizedQuery } from "../queries";
 import { format } from "sql-formatter";
+import { FinalizedQuery } from "../queries";
 
 const pretty = (text: string) => {
 	try {

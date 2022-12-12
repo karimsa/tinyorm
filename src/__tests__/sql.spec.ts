@@ -1,8 +1,8 @@
-import { sql, finalizeQuery, joinQueries, Entity } from "..";
 import { describe, it } from "@jest/globals";
-import { expectQuery } from "./util";
+import { Entity, finalizeQuery, sql } from "..";
 import { Column, isEntity } from "../entity";
 import { readJsonRef } from "../queries";
+import { expectQuery } from "./util";
 
 describe("sql", () => {
 	it("should prepare query statements with interpolated values (without casts)", () => {

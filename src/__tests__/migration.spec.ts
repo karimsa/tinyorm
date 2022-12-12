@@ -1,9 +1,9 @@
 import { describe, it } from "@jest/globals";
-import { Entity, Column, Index, createJoinBuilder, sql } from "../";
+import { Column, createJoinBuilder, Entity, Index, sql } from "../";
 import { ConnectionPool, createConnectionPool } from "../connection";
-import { expectQuery } from "./util";
 import { EntityFromShape } from "../entity";
 import { SuggestedMigration } from "../migrations";
+import { expectQuery } from "./util";
 
 describe("Migrations", () => {
 	it("should setup table from scratch", async () => {
