@@ -2,10 +2,8 @@ import { EntityFromShape, getEntityFields } from "./entity";
 import {
 	FinalizedQuery,
 	finalizeQuery,
-	joinQueries,
-	joinAllQueries,
-	PreparedQuery,
 	PostgresValueType,
+	PreparedQuery,
 	sql,
 } from "./queries";
 import { assertCase } from "./utils";
@@ -149,7 +147,7 @@ export class QueryBuilder<
 			return sql``;
 		}
 
-		const query = joinAllQueries(
+		const query = sql.join(
 			this.#orderByValues.map((query, index, self) =>
 				index === self.length - 1 ? query : sql.suffixQuery(query, ", "),
 			),
@@ -172,7 +170,7 @@ export class QueryBuilder<
 			return sql``;
 		}
 
-		const query = joinAllQueries(
+		const query = sql.join(
 			this.#groupByValues.map((query, index, self) =>
 				index === self.length - 1 ? query : sql.suffixQuery(query, ", "),
 			),
@@ -193,7 +191,7 @@ export class QueryBuilder<
 			${
 				this.#whereQueries.length === 0
 					? sql``
-					: joinAllQueries(
+					: sql.join(
 							this.#whereQueries.flatMap((query, index) =>
 								index === 0 ? [sql`WHERE `, query] : [sql` AND `, query],
 							),
@@ -267,10 +265,7 @@ export class JoinedQueryBuilder<
 
 		this.#includedEntites.set(alias, joinedEntity);
 		this.#joins.push(
-			joinQueries(
-				sql` INNER JOIN ${sql.getEntityRef(joinedEntity, alias)} ON `,
-				condition,
-			),
+			sql` INNER JOIN ${sql.getEntityRef(joinedEntity, alias)} ON ${condition}`,
 		);
 		return this as unknown as JoinedQueryBuilder<
 			Shapes & { [key in Alias]: JoinedShape },
@@ -293,10 +288,7 @@ export class JoinedQueryBuilder<
 
 		this.#includedEntites.set(alias, joinedEntity);
 		this.#joins.push(
-			joinQueries(
-				sql` LEFT JOIN ${sql.getEntityRef(joinedEntity, alias)} ON `,
-				condition,
-			),
+			sql` LEFT JOIN ${sql.getEntityRef(joinedEntity, alias)} ON ${condition}`,
 		);
 		return this as unknown as JoinedQueryBuilder<
 			Shapes & { [key in Alias]: JoinedShape },
@@ -319,10 +311,7 @@ export class JoinedQueryBuilder<
 
 		this.#includedEntites.set(alias, joinedEntity);
 		this.#joins.push(
-			joinQueries(
-				sql` RIGHT JOIN ${sql.getEntityRef(joinedEntity, alias)} ON `,
-				condition,
-			),
+			sql` RIGHT JOIN ${sql.getEntityRef(joinedEntity, alias)} ON ${condition}`,
 		);
 		return this as unknown as JoinedQueryBuilder<
 			Shapes & { [key in Alias]: JoinedShape },
@@ -461,7 +450,7 @@ export class JoinedQueryBuilder<
 			return sql``;
 		}
 
-		const query = joinAllQueries(
+		const query = sql.join(
 			this.#orderByValues.map((query, index, self) =>
 				index === self.length - 1 ? query : sql.suffixQuery(query, ", "),
 			),
@@ -487,7 +476,7 @@ export class JoinedQueryBuilder<
 			return sql``;
 		}
 
-		const query = joinAllQueries(
+		const query = sql.join(
 			this.#groupByValues.map((query, index, self) =>
 				index === self.length - 1 ? query : sql.suffixQuery(query, ", "),
 			),
@@ -503,7 +492,7 @@ export class JoinedQueryBuilder<
 			throw new Error(`No fields selected, cannot perform select query`);
 		}
 
-		return joinAllQueries([
+		return sql.join([
 			sql` SELECT ${sql.asUnescaped(
 				[
 					...selectedFields,

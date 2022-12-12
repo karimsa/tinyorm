@@ -296,11 +296,11 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 		if (this.#queries.length === 1) {
 			return this.#queries[0];
 		}
-		return sql.brackets(joinAllQueries(this.#queries));
+		return sql.brackets(sql.join(this.#queries));
 	}
 
 	getQuery(): PreparedQuery {
-		return sql.prefixQuery(` WHERE `, joinAllQueries(this.#queries));
+		return sql.prefixQuery(` WHERE `, sql.join(this.#queries));
 	}
 }
 

@@ -34,7 +34,7 @@ describe("sql", () => {
 	it("should join prepared statements with multiple variables", () => {
 		expectQuery(
 			finalizeQuery(
-				joinQueries(
+				sql.join([
 					sql`
 						SELECT *
 						FROM ${sql.getEntityRef({ schema: "public", tableName: "foo" })}
@@ -45,7 +45,7 @@ describe("sql", () => {
 						AND is_row = ${true}
 						AND stuff = ${undefined}
 					`,
-				),
+				]),
 			),
 		).toEqual({
 			text: `SELECT * FROM "public"."foo" WHERE created_at >= $1::timestamp AND name = $2::text AND is_row = $3::boolean AND stuff = $4`,

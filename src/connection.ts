@@ -14,7 +14,6 @@ import { debug } from "./logger";
 import {
 	FinalizedQuery,
 	finalizeQuery,
-	joinAllQueries,
 	PostgresValueType,
 	sql,
 } from "./queries";
@@ -259,12 +258,12 @@ export class ConnectionPool {
 
 		const columns = [...fieldSet.entries()];
 
-		return joinAllQueries([
+		return sql.join([
 			sql`CREATE TABLE ${sql.asUnescaped(
 				mustBeNew ? "" : "IF NOT EXISTS",
 			)} ${sql.getEntityRef(entity)}`,
 			sql.brackets(
-				joinAllQueries(
+				sql.join(
 					columns.map(([column, options], index) =>
 						sql.unescaped(
 							`"${column}" ${options.type} ${
@@ -285,14 +284,14 @@ export class ConnectionPool {
 
 		const columns = [...fieldSet.keys()];
 
-		return joinAllQueries([
+		return sql.join([
 			sql`INSERT INTO ${sql.getEntityRef(entity)} `,
 			sql.brackets(
 				sql.unescaped(columns.map((column) => `"${column}"`).join(", ")),
 			),
 			sql.unescaped(` VALUES `),
 			sql.brackets(
-				joinAllQueries(
+				sql.join(
 					columns.map(
 						(column, index) =>
 							sql`${

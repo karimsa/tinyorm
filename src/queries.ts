@@ -362,7 +362,7 @@ export function isJsonRef(value: any): value is JsonRef<unknown> {
 
 export const sql = Object.assign(
 	(
-		templateStrings: TemplateStringsArray,
+		templateStrings: ReadonlyArray<string>,
 		...parameters: (
 			| EntityFromShape<unknown>
 			| PostgresValueType
@@ -423,6 +423,14 @@ export const sql = Object.assign(
 				column: "",
 				jsonPath: [],
 			}) as unknown as JsonRefBuilder<Shape, Shape>;
+		},
+
+		join(queries: PreparedQuery[]): PreparedQuery {
+			if (queries.length === 0) {
+				throw new Error("Cannot join zero queries");
+			}
+
+			return sql(["", ...queries.map(() => "")], ...queries);
 		},
 
 		unescaped: (text: string): PreparedQuery => ({
@@ -510,40 +518,4 @@ export function isPreparedQuery(query: unknown): query is PreparedQuery {
 		Array.isArray((query as PreparedQuery).text) &&
 		Array.isArray((query as PreparedQuery).params)
 	);
-}
-
-export function joinQueries(
-	left: PreparedQuery,
-	right: PreparedQuery,
-): PreparedQuery {
-	if (left.text.length === 0) {
-		return right;
-	}
-	if (right.text.length === 0) {
-		return left;
-	}
-
-	return {
-		text: [
-			...left.text.slice(0, left.text.length - 1),
-			`${left.text[left.text.length - 1]}${right.text[0]}`,
-			...right.text.slice(1),
-		],
-		params: [...left.params, ...right.params],
-	};
-}
-
-export function joinAllQueries(queries: PreparedQuery[]): PreparedQuery {
-	let joinedQuery = queries[0];
-	if (!joinedQuery) {
-		throw new Error("Cannot join zero queries");
-	}
-
-	for (const [index, query] of queries.entries()) {
-		if (index > 0) {
-			joinedQuery = joinQueries(joinedQuery, query);
-		}
-	}
-
-	return joinedQuery;
 }

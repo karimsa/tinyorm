@@ -2,7 +2,6 @@ import {
 	FinalizedQuery,
 	finalizeQuery,
 	isJsonRef,
-	joinAllQueries,
 	JsonRef,
 	PostgresBooleanColumnType,
 	PostgresDateColumnType,
@@ -58,7 +57,7 @@ export function Index<Shape>(
 				  )
 				: columns;
 			const finalizedQuery = finalizeQuery(
-				joinAllQueries([
+				sql.join([
 					sql`CREATE${sql.asUnescaped(
 						options?.unique ? " UNIQUE" : "",
 					)} INDEX IF NOT EXISTS "${sql.asUnescaped(name)}" ON ${entity} `,
