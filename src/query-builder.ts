@@ -264,6 +264,22 @@ export class QueryBuilder<
 		return this as unknown as Omit<QueryBuilder<Shape, ResultShape>, "offset">;
 	}
 
+	#lockingDirective: PreparedQuery = sql``;
+	withLock(
+		lockType:
+			| "FOR UPDATE"
+			| "FOR UPDATE NOWAIT"
+			| "FOR UPDATE SKIP LOCKED"
+			| "FOR SHARE"
+			| "FOR SHARE NOWAIT"
+			| "FOR KEY SHARE"
+			| "FOR KEY SHARE NOWAIT"
+			| "FOR NO KEY UPDATE",
+	) {
+		this.#lockingDirective = sql.unescaped(lockType);
+		return this;
+	}
+
 	getPreparedQuery(): PreparedQuery {
 		if (this.#selectedFields.length === 0) {
 			throw new Error(`No fields selected, cannot perform select query`);
@@ -299,6 +315,7 @@ export class QueryBuilder<
 			${this.#getGroupBy()}
 			${this.#getOrderBy()}
 			${this.getPaginationQuery()}
+			${this.#lockingDirective}
 		`;
 	}
 
@@ -597,6 +614,26 @@ export class JoinedQueryBuilder<
 		>;
 	}
 
+	#lockingDirective: PreparedQuery = sql``;
+	withLock<Alias extends string & keyof Shapes>(
+		alias: Alias | "ALL",
+		lockType:
+			| "FOR UPDATE"
+			| "FOR UPDATE NOWAIT"
+			| "FOR UPDATE SKIP LOCKED"
+			| "FOR SHARE"
+			| "FOR SHARE NOWAIT"
+			| "FOR KEY SHARE"
+			| "FOR KEY SHARE NOWAIT"
+			| "FOR NO KEY UPDATE",
+	) {
+		this.#lockingDirective =
+			alias === "ALL"
+				? sql.unescaped(lockType)
+				: sql.unescaped(`${lockType} OF "${alias}"`);
+		return this;
+	}
+
 	getPreparedQuery(): PreparedQuery {
 		const selectedFields = this.#getSelectedFields();
 		const selectedComputedFields = this.#getSelectedComputedFields();
@@ -625,6 +662,7 @@ export class JoinedQueryBuilder<
 			${this.#getGroupBy()}
 			${this.#getOrderBy()}
 			${this.getPaginationQuery()}
+			${this.#lockingDirective}
 		`;
 	}
 

@@ -353,7 +353,8 @@ describe("QueryBuilder", () => {
 				.addGroupBy("user", "id")
 				.addOrderBy("user", "id", "ASC")
 				.addOrderBy("test", "DESC")
-				.addRawOrderBy(sql`foo DESC`);
+				.addRawOrderBy(sql`foo DESC`)
+				.withLock("user", "FOR UPDATE NOWAIT");
 
 			assertType<{ user: { id: string }; test: number } | null>(
 				getResolvedType(qb.getOne),
@@ -375,6 +376,7 @@ describe("QueryBuilder", () => {
 					WHERE "user"."name" = $1::text
 					GROUP BY ("user"."id")
 					ORDER BY "user"."id" ASC, "test" DESC, foo DESC
+					FOR UPDATE NOWAIT OF "user"
 				`,
 				values: ["Karim"],
 			});
@@ -388,7 +390,8 @@ describe("QueryBuilder", () => {
 				.addWhere((where) => where("status").EqualsAny(["Active", "Inactive"]))
 				.addGroupBy("id")
 				.addOrderBy("id", "ASC")
-				.addRawOrderBy(sql`foo DESC`);
+				.addRawOrderBy(sql`foo DESC`)
+				.withLock("FOR UPDATE");
 
 			assertType<{ id: string; current_time: Date } | null>(
 				getResolvedType(qb.getOne),
@@ -401,6 +404,7 @@ describe("QueryBuilder", () => {
 					WHERE "name" = $1::text AND "status" = ANY($2::text[])
 					GROUP BY ("id")
 					ORDER BY "id" ASC, foo DESC
+					FOR UPDATE
 				`,
 				values: ["Karim", ["Active", "Inactive"]],
 			});
