@@ -20,7 +20,8 @@ export type MigrationReason =
 	| "Unused Column"
 	| "New Column"
 	| "Column Default Updated"
-	| "Column Type Updated";
+	| "Column Type Updated"
+	| "Column Renamed";
 
 export interface SuggestedMigration {
 	reason: MigrationReason;
@@ -153,33 +154,50 @@ export class MigrationGenerator {
 			)
 			.getMany(this.connection);
 
-		for (const column of existingColumnData) {
-			const currentColumn = columnSet.get(column.col.column_name);
+		const validExistingColumnNames = new Set<string>();
 
-			if (currentColumn) {
-				// Columns that don't have a default value anymore
-				if (column.col.column_default && !currentColumn.defaultValue) {
+		for (const [columnName, columnOptions] of columnSet.entries()) {
+			const existingColumns = existingColumnData.filter(
+				(column) =>
+					column.col.column_name === columnName ||
+					column.col.column_name === columnOptions.previousName,
+			);
+			if (existingColumns.length > 1) {
+				throw new Error(
+					`Multiple existing columns matched the description for ${
+						entity.tableName
+					}.${columnName}: ${JSON.stringify(
+						existingColumns.map((col) => col.col.column_name),
+					)}`,
+				);
+			}
+
+			const matchingStoredColumn = existingColumns[0]?.col;
+			if (matchingStoredColumn) {
+				validExistingColumnNames.add(matchingStoredColumn.column_name);
+
+				// Columns that need to be renamed
+				if (matchingStoredColumn.column_name !== columnName) {
 					migrations.push({
-						reason: "Column Default Updated",
+						reason: "Column Renamed",
 						queries: [
 							finalizeQuery(
 								sql`ALTER TABLE "${sql.asUnescaped(
 									entity.schema,
 								)}"."${sql.asUnescaped(
 									entity.tableName,
-								)}" ALTER COLUMN "${sql.asUnescaped(
-									column.col.column_name,
-								)}" DROP DEFAULT`,
+								)}" RENAME COLUMN "${sql.asUnescaped(
+									matchingStoredColumn.column_name,
+								)}" TO "${sql.asUnescaped(columnName)}"`,
 							),
 						],
 					});
 				}
 
-				// Columns that changed their default values
-				else if (
-					currentColumn.defaultValue &&
-					column.col.column_default !==
-						currentColumn.defaultValue?.text.join("")
+				// Columns that don't have a default value anymore
+				if (
+					matchingStoredColumn.column_default &&
+					!columnOptions.defaultValue
 				) {
 					migrations.push({
 						reason: "Column Default Updated",
@@ -190,15 +208,37 @@ export class MigrationGenerator {
 								)}"."${sql.asUnescaped(
 									entity.tableName,
 								)}" ALTER COLUMN "${sql.asUnescaped(
-									column.col.column_name,
-								)}" SET DEFAULT ${currentColumn.defaultValue}`,
+									matchingStoredColumn.column_name,
+								)}" DROP DEFAULT`,
+							),
+						],
+					});
+				}
+
+				// Columns that changed their default values
+				else if (
+					columnOptions.defaultValue &&
+					matchingStoredColumn.column_default !==
+						columnOptions.defaultValue?.text.join("")
+				) {
+					migrations.push({
+						reason: "Column Default Updated",
+						queries: [
+							finalizeQuery(
+								sql`ALTER TABLE "${sql.asUnescaped(
+									entity.schema,
+								)}"."${sql.asUnescaped(
+									entity.tableName,
+								)}" ALTER COLUMN "${sql.asUnescaped(
+									matchingStoredColumn.column_name,
+								)}" SET DEFAULT ${columnOptions.defaultValue}`,
 							),
 						],
 					});
 				}
 
 				// Columns that changed their types
-				if (column.col.data_type !== currentColumn.type) {
+				if (matchingStoredColumn.data_type !== columnOptions.type) {
 					migrations.push({
 						reason: "Column Type Updated",
 						queries: [
@@ -208,14 +248,18 @@ export class MigrationGenerator {
 								)}"."${sql.asUnescaped(
 									entity.tableName,
 								)}" ALTER COLUMN "${sql.asUnescaped(
-									column.col.column_name,
-								)}" TYPE ${sql.asUnescaped(currentColumn.type)}`,
+									matchingStoredColumn.column_name,
+								)}" TYPE ${sql.asUnescaped(columnOptions.type)}`,
 							),
 						],
 					});
 				}
-			} else {
-				// Columns that need to be dropped
+			}
+		}
+
+		// Columns that need to be dropped
+		for (const existingColumn of existingColumnData) {
+			if (!validExistingColumnNames.has(existingColumn.col.column_name)) {
 				migrations.push({
 					reason: "Unused Column",
 					queries: [
@@ -224,7 +268,9 @@ export class MigrationGenerator {
 								entity.schema,
 							)}"."${sql.asUnescaped(
 								entity.tableName,
-							)}" DROP COLUMN "${sql.asUnescaped(column.col.column_name)}"`,
+							)}" DROP COLUMN "${sql.asUnescaped(
+								existingColumn.col.column_name,
+							)}"`,
 						),
 					],
 				});

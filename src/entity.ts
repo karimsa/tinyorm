@@ -93,12 +93,14 @@ export interface ColumnStoredOptions {
 	type: PostgresColumnType | `${PostgresColumnType}[]`;
 	nullable?: boolean;
 	defaultValue?: PreparedQuery;
+	previousName?: string;
 }
 
 export interface ColumnOptions {
 	type: PostgresColumnType | `${PostgresColumnType}[]`;
 	nullable?: boolean;
 	defaultValue?: PreparedQuery;
+	previousName?: string;
 }
 
 export function Column(options: ColumnOptions) {

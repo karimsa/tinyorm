@@ -360,5 +360,33 @@ describe("Migrations", () => {
 				},
 			]);
 		});
+
+		it("should handle column renames", async () => {
+			class MigrationTestUserUpdated extends Entity({
+				schema: "public",
+				tableName: "migration_test_user",
+			}) {
+				@Column({ type: 'uuid' })
+				readonly id: string;
+				@Column({ type: 'text', previousName: 'name' })
+				readonly foobar: string;
+				@Column({ type: 'jsonb' })
+				readonly meta: { isCool: boolean };
+			}
+
+			await expectMigrations(MigrationTestUserUpdated, [
+				{
+					reason: "Column Renamed",
+					queries: [
+						{
+							text: `
+								ALTER TABLE "public"."migration_test_user" RENAME COLUMN "name" TO "foobar"
+							`,
+							values: [],
+						},
+					],
+				},
+			]);
+		});
 	});
 });
