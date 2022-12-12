@@ -45,4 +45,16 @@ describe("Connection", () => {
 			],
 		});
 	});
+	it("should allow deleting selectively", async () => {
+		const query = await ConnectionPool.getDeleteFromQuery(TestUser, (where) =>
+			where("name").Equals("Karim"),
+		);
+		expectQuery(finalizeQuery(query)).toEqual({
+			text: `
+				DELETE FROM "public"."test_user"
+				WHERE "name" = $1::text
+			`,
+			values: ["Karim"],
+		});
+	});
 });
