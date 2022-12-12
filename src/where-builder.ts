@@ -137,6 +137,7 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 		return Object.assign(openWhere, {
 			all: allOrEither("AND"),
 			either: allOrEither("OR"),
+			raw: (query: PreparedQuery) => this.getNextBuilder([query]),
 		});
 	}
 
@@ -349,6 +350,9 @@ export class InternalSingleWhereBuilder<Shape extends object> {
 			either(builders: InternalWhereBuilder<{ default: Shape }>[]) {
 				return builder.all(builders);
 			},
+			raw(query: PreparedQuery) {
+				return builder.raw(query);
+			},
 		});
 	}
 
@@ -394,10 +398,20 @@ export class InternalSingleWhereBuilder<Shape extends object> {
 }
 
 export type JoinWhereQueryBuilder<Shapes extends Record<string, object>> =
-	ReturnType<InternalWhereBuilder<Shapes>["getBuilder"]>;
+	ReturnType<InternalWhereBuilder<Shapes>["getBuilder"]> & {
+		raw(
+			query: PreparedQuery,
+		): AndWhereQueryBuilder<JoinWhereQueryBuilder<Shapes>> &
+			OrWhereQueryBuilder<JoinWhereQueryBuilder<Shapes>>;
+	};
 export type SingleWhereQueryBuilder<Shape extends object> = ReturnType<
 	InternalSingleWhereBuilder<Shape>["getBuilder"]
->;
+> & {
+	raw(
+		query: PreparedQuery,
+	): AndWhereQueryBuilder<SingleWhereQueryBuilder<Shape>> &
+		OrWhereQueryBuilder<SingleWhereQueryBuilder<Shape>>;
+};
 
 export type AndWhereQueryBuilder<QueryBuilder extends Function> = {
 	andWhere: QueryBuilder;
@@ -416,9 +430,9 @@ export type WhereQueryBuilder =
 
 export function createSingleWhereBuilder<Shape extends object>(
 	entity: EntityFromShape<Shape>,
-): SingleWhereQueryBuilder<Shape> {
+) {
 	const builder = new InternalSingleWhereBuilder<Shape>(entity);
-	return builder.getBuilder();
+	return builder.getBuilder() as unknown as SingleWhereQueryBuilder<Shape>;
 }
 
 export function createJoinWhereBuilder<Shapes extends Record<string, object>>(

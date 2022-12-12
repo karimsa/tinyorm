@@ -29,6 +29,7 @@ describe("Migrations", () => {
 
 		await pool.withTransaction(async (connection) => {
 			await connection.dropTable(MigrationTestUser);
+			await connection.initMigrations();
 			await connection.unsafe_resetAllMigrations();
 		});
 		await pool.withClient(async (client) => {

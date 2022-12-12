@@ -144,9 +144,7 @@ export class Connection {
 
 	async unsafe_resetAllMigrations() {
 		try {
-			await this.query(
-				finalizeQuery(sql`DELETE FROM ${Migrations} WHERE TRUE`),
-			);
+			await this.deleteFrom(Migrations, (where) => where.raw(sql`true`));
 		} catch (err) {
 			if (!String(err).match(/relation.*does not exist/)) {
 				throw err;
