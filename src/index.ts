@@ -11,7 +11,10 @@ export {
 } from "./queries";
 export { Entity, Column, ColumnOptions, Index } from "./entity";
 export { createJoinBuilder, createSelectBuilder } from "./query-builder";
-export { createWhereBuilder } from "./where-builder";
+export {
+	createJoinWhereBuilder,
+	createSingleWhereBuilder,
+} from "./where-builder";
 export {
 	createConnectionPool,
 	DuplicateMigrationError,
@@ -30,7 +33,8 @@ export type {
 	ConnectionPool,
 } from "./connection";
 export type {
-	WhereQueryBuilder,
+	JoinWhereQueryBuilder,
+	SingleWhereQueryBuilder,
 	AndWhereQueryBuilder,
 	OrWhereQueryBuilder,
 } from "./where-builder";

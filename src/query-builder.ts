@@ -12,9 +12,9 @@ import { assertCase } from "./utils";
 import { PoolClient as PostgresClient } from "pg";
 import {
 	AndWhereQueryBuilder,
-	createWhereBuilder,
+	createJoinWhereBuilder,
 	OrWhereQueryBuilder,
-	WhereQueryBuilder,
+	JoinWhereQueryBuilder,
 } from "./where-builder";
 import { ZodSchema } from "zod";
 import { Connection, QueryError } from "./connection";
@@ -265,11 +265,13 @@ export class JoinedQueryBuilder<
 
 	where(
 		whereBuilder: (
-			where: WhereQueryBuilder<Shapes>,
-		) => AndWhereQueryBuilder<Shapes> | OrWhereQueryBuilder<Shapes>,
+			where: JoinWhereQueryBuilder<Shapes>,
+		) =>
+			| AndWhereQueryBuilder<JoinWhereQueryBuilder<Shapes>>
+			| OrWhereQueryBuilder<JoinWhereQueryBuilder<Shapes>>,
 	) {
 		this.#whereQuery = whereBuilder(
-			createWhereBuilder(this.#includedEntites),
+			createJoinWhereBuilder(this.#includedEntites),
 		).getQuery();
 		return this as unknown as Omit<
 			JoinedQueryBuilder<Shapes, ResultShape>,
