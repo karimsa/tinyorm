@@ -323,15 +323,23 @@ const createJsonRefProxy = (jsonRef: {
 								: jsonRef.jsonPath,
 					  })
 					: key === kJsonRef
-					? `"${jsonRef.column}"->${jsonRef.jsonPath
-							.map((key) => `"${key}"`)
-							.join("->")}`
+					? `"${jsonRef.column}"${jsonRef.jsonPath
+							.map((key) =>
+								// This is a bit hacky but it's the only way to check if a string is a number, since
+								// in JS, array indices are strings as well.
+								isNaN(Number(String(key))) ? `->"${key}"` : `->${key}`,
+							)
+							.join("")}`
 					: null,
 		},
 	);
 
 type JsonRefBuilder<EntityShape, Shape> = JsonRef<EntityShape> &
-	(Shape extends string
+	(Shape extends (infer ElmType)[]
+		? {
+				[Key: number]: JsonRefBuilder<EntityShape, ElmType>;
+		  }
+		: Shape extends string
 		? {}
 		: {
 				[Key in keyof Shape]: JsonRefBuilder<EntityShape, Shape[Key]>;
