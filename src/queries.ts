@@ -1,3 +1,4 @@
+import * as util from "util";
 import { EntityFromShape, isEntity } from "./entity";
 
 export type PostgresSimpleValueType = string | number | boolean | Date | object;
@@ -518,4 +519,43 @@ export function isPreparedQuery(query: unknown): query is PreparedQuery {
 		Array.isArray((query as PreparedQuery).text) &&
 		Array.isArray((query as PreparedQuery).params)
 	);
+}
+
+function serializePostgresValue(value: unknown) {
+	if (value === null) {
+		return "null";
+	}
+	if (value instanceof Date) {
+		return `'${value.toISOString()}'`;
+	}
+	if (typeof value === "object") {
+		return JSON.stringify(value);
+	}
+	if (typeof value === "number" || typeof value === "boolean") {
+		return value.toString();
+	}
+	if (typeof value === "string") {
+		return `'${value.replace(/'/g, "\\'")}'`;
+	}
+	throw new Error(
+		`Cannot serialize value: ${util.inspect(
+			value,
+		)} (use sql.asUnescaped to pass raw values))`,
+	);
+}
+
+export function unsafeFlattenQuery(query: PreparedQuery): PreparedQuery {
+	const finalizedQuery = finalizeQuery({
+		text: query.text,
+		params: query.params.map((param) => {
+			if (isUnescapedVariable(param)) {
+				return param;
+			}
+			return sql.asUnescaped(serializePostgresValue(param.value));
+		}),
+	});
+	return {
+		text: [finalizedQuery.text],
+		params: [],
+	};
 }

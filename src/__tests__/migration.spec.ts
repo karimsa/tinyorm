@@ -119,7 +119,7 @@ describe("Migrations", () => {
 			);
 		});
 
-		@Index(MigrationTestUserUpdated)("idx_user_name", ["id"])
+		@Index(MigrationTestUserUpdated)("idx_user_name", sql`("name") WHERE ("meta"->'isCool')::text::boolean = ${true}`)
 		class MigrationTestUserUpdated extends Entity({
 			schema: "public",
 			tableName: "migration_test_user",
@@ -147,7 +147,8 @@ describe("Migrations", () => {
 		});
 		expectQuery(queries[0].queries[1]).toEqual({
 			text: `
-				CREATE INDEX IF NOT EXISTS "idx_user_name" ON "public"."migration_test_user" ("id")
+				CREATE INDEX IF NOT EXISTS "idx_user_name" ON "public"."migration_test_user" ("name")
+				WHERE ("meta"->'isCool')::text::boolean = true
 			`,
 			values: [],
 		});
@@ -315,7 +316,7 @@ describe("Migrations", () => {
 					}) {
 						@Column({ type: "uuid" })
 						readonly id: string;
-						@Column({ type: "text", defaultValue: sql`'test2'` })
+						@Column({ type: "text", defaultValue: sql`${'test2'}` })
 						readonly name: string;
 						@Column({ type: "jsonb" })
 						readonly meta: { isCool: boolean };

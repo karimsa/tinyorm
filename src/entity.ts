@@ -11,6 +11,7 @@ import {
 	PreparedQuery,
 	readJsonRef,
 	sql,
+	unsafeFlattenQuery,
 } from "./queries";
 import { assertCase } from "./utils";
 
@@ -47,15 +48,17 @@ export function Index<Shape>(
 ) => (target: EntityFromShape<Shape>) => void {
 	return (name, columns, options) => {
 		return (target) => {
-			const indexQuery = Array.isArray(columns)
-				? sql.unescaped(
-						`(${columns
-							.map((column) =>
-								isJsonRef(column) ? readJsonRef(column) : `"${column}"`,
-							)
-							.join(", ")})`,
-				  )
-				: columns;
+			const indexQuery = unsafeFlattenQuery(
+				Array.isArray(columns)
+					? sql.unescaped(
+							`(${columns
+								.map((column) =>
+									isJsonRef(column) ? readJsonRef(column) : `"${column}"`,
+								)
+								.join(", ")})`,
+					  )
+					: columns,
+			);
 			const finalizedQuery = finalizeQuery(
 				sql`CREATE${sql.asUnescaped(
 					options?.unique ? " UNIQUE" : "",
@@ -63,11 +66,6 @@ export function Index<Shape>(
 					name,
 				)}" ON ${entity} ${indexQuery}`,
 			);
-			if (finalizedQuery.values.length > 0) {
-				throw new Error(
-					`Index '${name}' on '${entity.tableName}' is invalid: your index must not contain any prepared variables`,
-				);
-			}
 
 			const indexSet =
 				indexRegistry.get(target) ??
@@ -112,18 +110,15 @@ export function Column(options: ColumnOptions) {
 	return function (target: object, propertyKey: string) {
 		assertCase("property name", propertyKey);
 
-		if (Number(options.defaultValue?.params.length) > 0) {
-			throw new Error(
-				`Column '${propertyKey}' has a default value that contains prepared variables`,
-			);
-		}
-
+		const defaultValue = options.defaultValue
+			? unsafeFlattenQuery(options.defaultValue)
+			: undefined;
 		const fieldSet =
 			fieldRegistry.get(target) ?? new Map<string, ColumnStoredOptions>();
 		fieldRegistry.set(target, fieldSet);
 		fieldSet.set(propertyKey, {
 			...options,
-			defaultValue: options.defaultValue ? options.defaultValue : undefined,
+			defaultValue,
 		});
 	};
 }
