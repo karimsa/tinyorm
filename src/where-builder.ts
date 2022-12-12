@@ -410,6 +410,10 @@ export type OrWhereQueryBuilder<QueryBuilder extends Function> = {
 	getQuery: () => PreparedQuery;
 };
 
+export type WhereQueryBuilder =
+	| AndWhereQueryBuilder<Function>
+	| OrWhereQueryBuilder<Function>;
+
 export function createSingleWhereBuilder<Shape extends object>(
 	entity: EntityFromShape<Shape>,
 ): SingleWhereQueryBuilder<Shape> {

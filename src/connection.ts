@@ -19,6 +19,11 @@ import {
 	sql,
 } from "./queries";
 import { MigrationGenerator, SuggestedMigration } from "./migrations";
+import {
+	createSingleWhereBuilder,
+	SingleWhereQueryBuilder,
+	WhereQueryBuilder,
+} from "./where-builder";
 
 export class QueryError extends Error {
 	constructor(
@@ -113,6 +118,15 @@ export class Connection {
 	async insertOne<Shape>(entity: EntityFromShape<Shape>, entry: Shape) {
 		return this.query(
 			finalizeQuery(ConnectionPool.getInsertQuery(entity, entry)),
+		);
+	}
+
+	async deleteFrom<Shape extends object>(
+		entity: EntityFromShape<Shape>,
+		whereBuilder: (where: SingleWhereQueryBuilder<Shape>) => WhereQueryBuilder,
+	) {
+		return this.query(
+			finalizeQuery(ConnectionPool.getDeleteFromQuery(entity, whereBuilder)),
 		);
 	}
 
@@ -290,6 +304,16 @@ export class ConnectionPool {
 				),
 			),
 		]);
+	}
+
+	static getDeleteFromQuery<Shape extends object>(
+		entity: EntityFromShape<Shape>,
+		whereBuilder: (where: SingleWhereQueryBuilder<Shape>) => WhereQueryBuilder,
+	) {
+		const whereQuery = whereBuilder(
+			createSingleWhereBuilder(entity),
+		).getQuery();
+		return sql`DELETE FROM ${entity} ${whereQuery}`;
 	}
 }
 

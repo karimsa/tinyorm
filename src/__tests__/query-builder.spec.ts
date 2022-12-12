@@ -5,7 +5,9 @@ import {
 	createSelectBuilder,
 	createJoinBuilder,
 	Index,
+	finalizeQuery,
 } from "..";
+import { ConnectionPool } from "../connection";
 import { expectQuery, getResolvedType } from "./util";
 import { assertType } from "../utils";
 import { z } from "zod";
@@ -314,6 +316,21 @@ describe("QueryBuilder", () => {
 					WHERE "name" = $1::text
 					GROUP BY ("id")
 					ORDER BY "id" ASC, foo DESC
+				`,
+				values: ["Karim"],
+			});
+		});
+	});
+
+	describe("DeleteBuilder", () => {
+		it("should allow deleting selectively", async () => {
+			const query = await ConnectionPool.getDeleteFromQuery(User, (where) =>
+				where("name").Equals("Karim"),
+			);
+			expectQuery(finalizeQuery(query)).toEqual({
+				text: `
+					DELETE FROM "app"."user"
+					WHERE "name" = $1::text
 				`,
 				values: ["Karim"],
 			});
