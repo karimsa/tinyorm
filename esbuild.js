@@ -25,7 +25,7 @@ const buildFile = (input, output) =>
 		watch: process.argv.includes("-w"),
 	});
 
-buildFile(`./src/index.ts`, `./tinyorm.dist.js`).catch((error) => {
+buildFile(`./src/index.ts`, `./dist/index.js`).catch((error) => {
 	if (!error.errors) {
 		console.error(error);
 	}

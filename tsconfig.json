@@ -4,14 +4,16 @@
     "target": "esnext",
     "experimentalDecorators": true,
     "module": "commonjs",
-    "noEmit": true,
+    "emitDeclarationOnly": true,
+    "declaration": true,
     "downlevelIteration": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "strictPropertyInitialization": false,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "outDir": "dist"
   },
   "include": [
     "./src"

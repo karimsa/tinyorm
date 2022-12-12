@@ -2,11 +2,12 @@
   "name": "@karimsa/tinyorm",
   "version": "0.0.1-2",
   "description": "Minimal type-safe ORM for Postgres.",
-  "types": "./src",
+  "types": "./dist",
+  "main": "./dist/index.js",
   "scripts": {
     "test": "jest",
-    "build": "node esbuild",
-    "lint": "rome check src && tsc"
+    "build": "tsc && node esbuild",
+    "lint": "rome check src"
   },
   "devDependencies": {
     "@babel/plugin-syntax-decorators": "7.19.0",
