@@ -1,0 +1,9 @@
+.github
+.vscode
+coverage
+.babelrc
+esbuild.js
+jest.config.js
+rome.json
+tsconfig.json
+*.log
