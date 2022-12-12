@@ -92,7 +92,7 @@ export class QueryBuilder<
 	readonly #selectedFields: string[] = [];
 	readonly #orderByValues: PreparedQuery[] = [];
 	readonly #groupByValues: PreparedQuery[] = [];
-	#whereQuery: PreparedQuery | null = null;
+	#whereQueries: PreparedQuery[] = [];
 
 	constructor(readonly targetFromEntity: EntityFromShape<Shape>) {
 		super();
@@ -106,28 +106,24 @@ export class QueryBuilder<
 		return this as any;
 	}
 
-	whereRaw(query: PreparedQuery) {
-		this.#whereQuery = query;
-		return this as unknown as Omit<
-			QueryBuilder<Shape, ResultShape>,
-			"where" | "whereRaw"
-		>;
+	andWhereRaw(query: PreparedQuery) {
+		this.#whereQueries.push(query);
+		return this;
 	}
 
-	where(
+	andWhere(
 		whereBuilder: (
 			where: SingleWhereQueryBuilder<Shape>,
 		) =>
 			| AndWhereQueryBuilder<SingleWhereQueryBuilder<Shape>>
 			| OrWhereQueryBuilder<SingleWhereQueryBuilder<Shape>>,
 	) {
-		this.#whereQuery = whereBuilder(
-			createSingleWhereBuilder(this.targetFromEntity),
-		).getQuery();
-		return this as unknown as Omit<
-			QueryBuilder<Shape, ResultShape>,
-			"where" | "whereRaw"
-		>;
+		this.#whereQueries.push(
+			whereBuilder(
+				createSingleWhereBuilder(this.targetFromEntity),
+			).getConditionQuery(),
+		);
+		return this;
 	}
 
 	addRawOrderBy(query: PreparedQuery) {
@@ -194,7 +190,15 @@ export class QueryBuilder<
 				this.#selectedFields.map((field) => `"${field}"`).join(", "),
 			)}
 			FROM ${this.targetFromEntity}
-			${this.#whereQuery || sql``}
+			${
+				this.#whereQueries.length === 0
+					? sql``
+					: joinAllQueries(
+							this.#whereQueries.flatMap((query, index) =>
+								index === 0 ? [sql`WHERE `, query] : [sql` AND `, query],
+							),
+					  )
+			}
 			${this.#getGroupBy()}
 			${this.#getOrderBy()}
 		`;

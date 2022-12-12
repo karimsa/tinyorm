@@ -201,7 +201,6 @@ describe("Migrations", () => {
 				throw new Error(`Migration generation triggered a rollback`);
 			}
 
-			console.dir({ actualQueries, expectedQueries }, { depth: null });
 			expect(actualQueries).toMatchObject(
 				expectedQueries.map((migration) => ({
 					...migration,
@@ -304,10 +303,6 @@ describe("Migrations", () => {
 			// Apply the migrations to the class
 			await expect(
 				pool.withTransaction(async (connection) => {
-					console.dir(
-						await connection.getMigrationQueries(MigrationTestUserUpdated),
-						{ depth: null },
-					);
 					await connection.executeMigration(
 						"test default value set",
 						await connection.getMigrationQueries(MigrationTestUserUpdated),

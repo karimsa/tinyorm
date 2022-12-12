@@ -379,7 +379,8 @@ describe("QueryBuilder", () => {
 			const qb = createSelectBuilder()
 				.from(User)
 				.select(["id"])
-				.where((where) => where("name").Equals("Karim"))
+				.andWhere((where) => where("name").Equals("Karim"))
+				.andWhere((where) => where("status").EqualsAny(["Active", "Inactive"]))
 				.addGroupBy("id")
 				.addOrderBy("id", "ASC")
 				.addRawOrderBy(sql`foo DESC`);
@@ -390,11 +391,11 @@ describe("QueryBuilder", () => {
 				text: `
 					SELECT "id"
 					FROM "app"."user"
-					WHERE "name" = $1::text
+					WHERE "name" = $1::text AND "status" = ANY($2::text[])
 					GROUP BY ("id")
 					ORDER BY "id" ASC, foo DESC
 				`,
-				values: ["Karim"],
+				values: ["Karim", ["Active", "Inactive"]],
 			});
 		});
 	});
