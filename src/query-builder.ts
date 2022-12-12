@@ -90,7 +90,7 @@ export class QueryBuilder<
 	readonly #selectedFields: string[] = [];
 	readonly #orderByValues: PreparedQuery[] = [];
 	readonly #groupByValues: PreparedQuery[] = [];
-	#whereQueries: PreparedQuery[] = [];
+	readonly #whereQueries: PreparedQuery[] = [];
 
 	constructor(readonly targetFromEntity: EntityFromShape<Shape>) {
 		super();
@@ -104,12 +104,12 @@ export class QueryBuilder<
 		return this as any;
 	}
 
-	andWhereRaw(query: PreparedQuery) {
+	addWhereRaw(query: PreparedQuery) {
 		this.#whereQueries.push(query);
 		return this;
 	}
 
-	andWhere(
+	addWhere(
 		whereBuilder: (
 			where: SingleWhereQueryBuilder<Shape>,
 		) =>
@@ -241,7 +241,7 @@ export class JoinedQueryBuilder<
 	readonly #includedEntites = new Map<string, EntityFromShape<unknown>>();
 	readonly #orderByValues: PreparedQuery[] = [];
 	readonly #groupByValues: PreparedQuery[] = [];
-	#whereQuery: PreparedQuery | null = null;
+	readonly #whereQueries: PreparedQuery[] = [];
 
 	constructor(
 		readonly targetFromEntity: EntityFromShape<unknown>,
@@ -391,28 +391,22 @@ export class JoinedQueryBuilder<
 		return selectedFieldQueries;
 	}
 
-	whereRaw(query: PreparedQuery) {
-		this.#whereQuery = query;
-		return this as unknown as Omit<
-			JoinedQueryBuilder<Shapes, PartialShapes, ResultShape>,
-			"where" | "whereRaw"
-		>;
+	addWhereRaw(query: PreparedQuery) {
+		this.#whereQueries.push(query);
+		return this;
 	}
 
-	where(
+	addWhere(
 		whereBuilder: (
 			where: JoinWhereQueryBuilder<Shapes>,
 		) =>
 			| AndWhereQueryBuilder<JoinWhereQueryBuilder<Shapes>>
 			| OrWhereQueryBuilder<JoinWhereQueryBuilder<Shapes>>,
 	) {
-		this.#whereQuery = whereBuilder(
-			createJoinWhereBuilder(this.#includedEntites),
-		).getQuery();
-		return this as unknown as Omit<
-			JoinedQueryBuilder<Shapes, PartialShapes, ResultShape>,
-			"where" | "whereRaw"
-		>;
+		this.#whereQueries.push(
+			whereBuilder(createJoinWhereBuilder(this.#includedEntites)).getQuery(),
+		);
+		return this;
 	}
 
 	addRawOrderBy(query: PreparedQuery) {
@@ -508,7 +502,7 @@ export class JoinedQueryBuilder<
 			}
 			FROM ${sql.getEntityRef(this.targetFromEntity, this.targetEntityAlias)}
 			${this.#joins.length > 0 ? sql.join(this.#joins) : sql``}
-			${this.#whereQuery ?? sql``}
+			${this.#whereQueries.length > 0 ? sql.join(this.#whereQueries) : sql``}
 			${this.#getGroupBy()}
 			${this.#getOrderBy()}
 		`;

@@ -38,7 +38,9 @@ export class MigrationGenerator {
 		const schemaInfo = await createJoinBuilder()
 			.from(SchemaCatalog, "schema_entry")
 			.selectAll("schema_entry")
-			.where((where) => where("schema_entry", "schema_name").Equals(schemaName))
+			.addWhere((where) =>
+				where("schema_entry", "schema_name").Equals(schemaName),
+			)
 			.getOne(this.connection);
 
 		// Creation of schema
@@ -83,7 +85,7 @@ export class MigrationGenerator {
 		const existingIndexData = await createJoinBuilder()
 			.from(TableIndexCatalog, "index_entry")
 			.selectAll("index_entry")
-			.where((where) =>
+			.addWhere((where) =>
 				where("index_entry", "schemaname")
 					.Equals(entity.schema)
 					.andWhere("index_entry", "tablename")
@@ -167,7 +169,7 @@ export class MigrationGenerator {
 		const existingColumnData = await createJoinBuilder()
 			.from(TableColumnCatalog, "col")
 			.selectAll("col")
-			.where((where) =>
+			.addWhere((where) =>
 				where("col", "table_schema")
 					.Equals(entity.schema)
 					.andWhere("col", "table_name")
@@ -312,7 +314,7 @@ export class MigrationGenerator {
 		const tableInfo = await createJoinBuilder()
 			.from(TableCatalog, "table_entry")
 			.selectAll("table_entry")
-			.where((where) =>
+			.addWhere((where) =>
 				where("table_entry", "table_schema")
 					.Equals(entity.schema)
 					.andWhere("table_entry", "table_name")

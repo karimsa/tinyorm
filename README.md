@@ -39,7 +39,7 @@ import { createSelectBuilder } from '@karimsa/tinyorm';
 const user = await createSelectBuilder()
   .from(User)
   .select(['id', 'name'])
-  .where(where => where('name').Equals('Karim'))
+  .addWhere(where => where('name').Equals('Karim'))
   .getOne();
 ```
 
@@ -61,7 +61,7 @@ const results = await createJoinBuilder()
   .innerJoin(UserPost, 'user_post', sql`user.id = user_post.user_id`)
   .select('user', ['id'])
   .select('user_post', ['id', 'title'])
-  .where(where => where('user', 'name').Equals('Karim'))
+  .addWhere(where => where('user', 'name').Equals('Karim'))
   .getMany();
 ```
 
@@ -78,7 +78,7 @@ const results = await createJoinBuilder()
   // Calling `sql.json()` on any entity returns a `JsonBuilder` that can be used to query JSONB columns.
   // The types are derived from the shape of the entity, and the runtime value is transformed internally
   // into the correct JSONB query.
-  .where(where => where('user', sql.json(User).nested.json.path).CastAs('text').Equals('foobar'))
+  .addWhere(where => where('user', sql.json(User).nested.json.path).CastAs('text').Equals('foobar'))
   .getMany();
 ```
 

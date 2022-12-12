@@ -124,7 +124,7 @@ describe("QueryBuilder", () => {
 					)
 					.select("user", ["id", "name"])
 					.select("organization", ["name"])
-					.where((where) =>
+					.addWhere((where) =>
 						where.either([
 							where("user", "name")
 								.Like("%Karim%")
@@ -315,7 +315,7 @@ describe("QueryBuilder", () => {
 				.innerJoin(UserPost, "user_post", sql`"user_post".user_id = "user".id`)
 				.select("user", ["id"])
 				.selectRaw(sql`count(distinct user_post.post_id)`, "test", z.number())
-				.where((where) => where("user", "name").Equals("Karim"));
+				.addWhere((where) => where("user", "name").Equals("Karim"));
 
 			assertType<{ user: { id: string }; test: number } | null>(
 				getResolvedType(qb.getOne),
@@ -345,7 +345,7 @@ describe("QueryBuilder", () => {
 				.innerJoin(UserPost, "user_post", sql`"user_post".user_id = "user".id`)
 				.select("user", ["id"])
 				.selectRaw(sql`count(distinct user_post.post_id)`, "test", z.number())
-				.where((where) => where("user", "name").Equals("Karim"))
+				.addWhere((where) => where("user", "name").Equals("Karim"))
 				.addGroupBy("user", "id")
 				.addOrderBy("user", "id", "ASC")
 				.addOrderBy("test", "DESC")
@@ -379,8 +379,8 @@ describe("QueryBuilder", () => {
 			const qb = createSelectBuilder()
 				.from(User)
 				.select(["id"])
-				.andWhere((where) => where("name").Equals("Karim"))
-				.andWhere((where) => where("status").EqualsAny(["Active", "Inactive"]))
+				.addWhere((where) => where("name").Equals("Karim"))
+				.addWhere((where) => where("status").EqualsAny(["Active", "Inactive"]))
 				.addGroupBy("id")
 				.addOrderBy("id", "ASC")
 				.addRawOrderBy(sql`foo DESC`);
