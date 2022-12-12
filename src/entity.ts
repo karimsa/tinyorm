@@ -34,14 +34,17 @@ export function Entity({
 	};
 }
 
-const indexRegistry = new Registry<object, Map<string, FinalizedQuery>>();
+const indexRegistry = new Registry<
+	object,
+	Map<string, { query: FinalizedQuery; previousName?: string }>
+>();
 
 export function Index<Shape>(
 	entity: EntityFromShape<Shape>,
 ): (
 	name: string,
 	columns: PreparedQuery | ((string & keyof Shape) | JsonRef<Shape>)[],
-	options?: { unique: boolean },
+	options?: { unique?: boolean; previousName?: string },
 ) => (target: EntityFromShape<Shape>) => void {
 	return (name, columns, options) => {
 		return (target) => {
@@ -69,7 +72,8 @@ export function Index<Shape>(
 			}
 
 			const indexSet =
-				indexRegistry.get(target) ?? new Map<string, FinalizedQuery>();
+				indexRegistry.get(target) ??
+				new Map<string, { query: FinalizedQuery; previousName?: string }>();
 			indexRegistry.set(target, indexSet);
 
 			if (indexSet.has(name)) {
@@ -77,7 +81,10 @@ export function Index<Shape>(
 					`Index '${name}' on '${entity.tableName}' was specified twice`,
 				);
 			}
-			indexSet.set(name, finalizedQuery);
+			indexSet.set(name, {
+				query: finalizedQuery,
+				previousName: options?.previousName,
+			});
 		};
 	};
 }
@@ -158,5 +165,8 @@ export function getEntityFields(entity: EntityFromShape<unknown>) {
 }
 
 export function getEntityIndices(entity: EntityFromShape<unknown>) {
-	return indexRegistry.get(entity) ?? new Map<string, FinalizedQuery>();
+	return (
+		indexRegistry.get(entity) ??
+		new Map<string, { query: FinalizedQuery; previousName?: string }>()
+	);
 }

@@ -17,6 +17,7 @@ export type MigrationReason =
 	| "Unused Index"
 	| "New Index"
 	| "Index Updated"
+	| "Index Renamed"
 	| "Unused Column"
 	| "New Column"
 	| "Column Default Updated"
@@ -65,7 +66,7 @@ export class MigrationGenerator {
 			],
 		});
 
-		for (const query of getEntityIndices(entity).values()) {
+		for (const { query } of getEntityIndices(entity).values()) {
 			migrationQueries.push({
 				reason: "Missing Index",
 				queries: [query],
@@ -89,49 +90,69 @@ export class MigrationGenerator {
 					.Equals(entity.tableName),
 			)
 			.getMany(this.connection);
+		const validExistingIndexNames = new Set<string>();
 
-		for (const index of existingIndexData) {
-			const currentIndex = indexSet.get(index.index_entry.indexname);
-			if (currentIndex) {
+		for (const [indexName, indexOptions] of indexSet.entries()) {
+			const existingIndex = existingIndexData.find(
+				(row) =>
+					row.index_entry.indexname === indexName ||
+					row.index_entry.indexname === indexOptions.previousName,
+			);
+
+			if (existingIndex) {
+				validExistingIndexNames.add(existingIndex.index_entry.indexname);
+
+				if (existingIndex.index_entry.indexname !== indexName) {
+					// Indices that need to be renamed
+					migrationQueries.push({
+						reason: "Index Renamed",
+						queries: [
+							finalizeQuery(
+								sql`ALTER INDEX "${sql.asUnescaped(
+									entity.schema,
+								)}"."${sql.asUnescaped(
+									existingIndex.index_entry.indexname,
+								)}" RENAME TO "${sql.asUnescaped(indexName)}"`,
+							),
+						],
+					});
+				}
+
 				// Indices that had their criteria changed
-				if (index.index_entry.indexdef !== currentIndex.text) {
+				if (existingIndex.index_entry.indexdef !== indexOptions.query.text) {
 					migrationQueries.push({
 						reason: "Index Updated",
 						queries: [
 							finalizeQuery(
 								sql`DROP INDEX IF EXISTS "${sql.asUnescaped(
 									entity.schema,
-								)}"."${sql.asUnescaped(index.index_entry.indexname)}"`,
+								)}"."${sql.asUnescaped(indexName)}"`,
 							),
-							currentIndex,
+							indexOptions.query,
 						],
 					});
 				}
 			} else {
-				// Indices that need to be dropped
+				// Indices that need to be created
+				migrationQueries.push({
+					reason: "New Index",
+					queries: [indexOptions.query],
+				});
+			}
+		}
+
+		// Indices that need to be dropped
+		for (const existingIndex of existingIndexData) {
+			if (!validExistingIndexNames.has(existingIndex.index_entry.indexname)) {
 				migrationQueries.push({
 					reason: "Unused Index",
 					queries: [
 						finalizeQuery(
 							sql`DROP INDEX IF EXISTS "${sql.asUnescaped(
 								entity.schema,
-							)}"."${sql.asUnescaped(index.index_entry.indexname)}"`,
+							)}"."${sql.asUnescaped(existingIndex.index_entry.indexname)}"`,
 						),
 					],
-				});
-			}
-		}
-
-		// Look for indices that are brand new
-		for (const [indexName, indexQuery] of indexSet.entries()) {
-			if (
-				!existingIndexData.find(
-					(row) => row.index_entry.indexname === indexName,
-				)
-			) {
-				migrationQueries.push({
-					reason: "New Index",
-					queries: [indexQuery],
 				});
 			}
 		}
