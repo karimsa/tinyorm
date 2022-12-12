@@ -296,5 +296,27 @@ describe("QueryBuilder", () => {
 				values: ["Karim"],
 			});
 		});
+		it("should allow grouping and ordering on single entity", () => {
+			const qb = createSelectBuilder()
+				.from(User)
+				.select(["id"])
+				.where((where) => where("name").Equals("Karim"))
+				.addGroupBy("id")
+				.addOrderBy("id", "ASC")
+				.addRawOrderBy(sql`foo DESC`);
+
+			assertType<{ id: string } | null>(getResolvedType(qb.getOne));
+			expect(qb.buildOne({ id: "user-id" })).toEqual({ id: "user-id" });
+			expectQuery(qb.getQuery()).toEqual({
+				text: `
+					SELECT "id"
+					FROM "app"."user"
+					WHERE "name" = $1::text
+					GROUP BY ("id")
+					ORDER BY "id" ASC, foo DESC
+				`,
+				values: ["Karim"],
+			});
+		});
 	});
 });

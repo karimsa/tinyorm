@@ -15,6 +15,8 @@ import {
 	createJoinWhereBuilder,
 	OrWhereQueryBuilder,
 	JoinWhereQueryBuilder,
+	SingleWhereQueryBuilder,
+	createSingleWhereBuilder,
 } from "./where-builder";
 import { ZodSchema } from "zod";
 import { Connection, QueryError } from "./connection";
@@ -88,6 +90,9 @@ export class QueryBuilder<
 	ResultShape,
 > extends BaseQueryBuilder<ResultShape> {
 	readonly #selectedFields: string[] = [];
+	readonly #orderByValues: PreparedQuery[] = [];
+	readonly #groupByValues: PreparedQuery[] = [];
+	#whereQuery: PreparedQuery | null = null;
 
 	constructor(readonly targetFromEntity: EntityFromShape<Shape>) {
 		super();
@@ -101,6 +106,84 @@ export class QueryBuilder<
 		return this as any;
 	}
 
+	whereRaw(query: PreparedQuery) {
+		this.#whereQuery = query;
+		return this as unknown as Omit<
+			QueryBuilder<Shape, ResultShape>,
+			"where" | "whereRaw"
+		>;
+	}
+
+	where(
+		whereBuilder: (
+			where: SingleWhereQueryBuilder<Shape>,
+		) =>
+			| AndWhereQueryBuilder<SingleWhereQueryBuilder<Shape>>
+			| OrWhereQueryBuilder<SingleWhereQueryBuilder<Shape>>,
+	) {
+		this.#whereQuery = whereBuilder(
+			createSingleWhereBuilder(this.targetFromEntity),
+		).getQuery();
+		return this as unknown as Omit<
+			QueryBuilder<Shape, ResultShape>,
+			"where" | "whereRaw"
+		>;
+	}
+
+	addRawOrderBy(query: PreparedQuery) {
+		this.#orderByValues.push(query);
+		return this;
+	}
+
+	addOrderBy<Alias extends string & keyof ResultShape>(
+		alias: Alias,
+		direction: "ASC" | "DESC",
+	): this;
+	addOrderBy<Column extends string & keyof Shape,>(
+		column: Column,
+		direction: "ASC" | "DESC",
+	): this;
+	addOrderBy(aliasOrColumn: string, direction?: "ASC" | "DESC") {
+		this.#orderByValues.push(sql.unescaped(`"${aliasOrColumn}" ${direction}`));
+		return this;
+	}
+
+	#getOrderBy() {
+		if (this.#orderByValues.length === 0) {
+			return sql``;
+		}
+
+		const query = joinAllQueries(
+			this.#orderByValues.map((query, index, self) =>
+				index === self.length - 1 ? query : sql.suffixQuery(query, ", "),
+			),
+		);
+		return sql.prefixQuery(` ORDER BY `, query);
+	}
+
+	addRawGroupBy(query: PreparedQuery) {
+		this.#groupByValues.push(query);
+		return this;
+	}
+
+	addGroupBy<Column extends string & keyof Shape,>(column: Column) {
+		this.#groupByValues.push(sql.unescaped(`"${column}"`));
+		return this;
+	}
+
+	#getGroupBy() {
+		if (this.#groupByValues.length === 0) {
+			return sql``;
+		}
+
+		const query = joinAllQueries(
+			this.#groupByValues.map((query, index, self) =>
+				index === self.length - 1 ? query : sql.suffixQuery(query, ", "),
+			),
+		);
+		return sql.wrapQuery(` GROUP BY (`, query, `)`);
+	}
+
 	getPreparedQuery(): PreparedQuery {
 		if (this.#selectedFields.length === 0) {
 			throw new Error(`No fields selected, cannot perform select query`);
@@ -111,6 +194,9 @@ export class QueryBuilder<
 				this.#selectedFields.map((field) => `"${field}"`).join(", "),
 			)}
 			FROM ${this.targetFromEntity}
+			${this.#whereQuery || sql``}
+			${this.#getGroupBy()}
+			${this.#getOrderBy()}
 		`;
 	}
 
@@ -248,9 +334,7 @@ export class JoinedQueryBuilder<
 	#getSelectedComputedFields() {
 		const selectedFieldQueries: PreparedQuery[] = [];
 		for (const [alias, { query }] of this.#selectedComputedFields.entries()) {
-			selectedFieldQueries.push(
-				sql.suffixQuery(sql.cloneQuery(query), ` AS "${alias}"`),
-			);
+			selectedFieldQueries.push(sql.suffixQuery(query, ` AS "${alias}"`));
 		}
 		return selectedFieldQueries;
 	}
