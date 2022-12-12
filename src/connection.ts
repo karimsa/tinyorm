@@ -35,16 +35,16 @@ export class QueryError extends Error {
 	}
 }
 
-@Index(Migrations)('idx_migration_name', ['name'], {unique: true})
+@Index(Migrations)("idx_migration_name", ["name"], { unique: true })
 class Migrations extends Entity({
 	schema: "tinyorm",
 	tableName: "migrations",
 }) {
-	@Column({ type: 'text' })
+	@Column({ type: "text" })
 	readonly name: string;
-	@Column({ type: 'timestamp without time zone' })
+	@Column({ type: "timestamp without time zone" })
 	readonly started_at: Date;
-	@Column({ type: 'timestamp without time zone', nullable: true })
+	@Column({ type: "timestamp without time zone", nullable: true })
 	readonly completed_at: Date | null;
 }
 
@@ -315,11 +315,6 @@ export class ConnectionPool {
 	}
 }
 
-export async function createConnectionPool(options: PostgresPoolOptions) {
-	const pgClientPool = new PostgresPool(options);
-	const pool = new ConnectionPool(pgClientPool);
-	await pool.withClient(async (client) => {
-		await client.query(`select true`);
-	});
-	return pool;
+export function createConnectionPool(options: PostgresPoolOptions) {
+	return new ConnectionPool(new PostgresPool(options));
 }

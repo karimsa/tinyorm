@@ -7,20 +7,20 @@ import { SuggestedMigration } from "../migrations";
 
 describe("Migrations", () => {
 	it("should setup table from scratch", async () => {
-		@Index(MigrationTestUser)('idx_user_name', ['name'])
+		@Index(MigrationTestUser)("idx_user_name", ["name"])
 		class MigrationTestUser extends Entity({
 			schema: "public",
 			tableName: "migration_test_user",
 		}) {
-			@Column({ type: 'uuid' })
+			@Column({ type: "uuid" })
 			readonly id: string;
-			@Column({ type: 'text' })
+			@Column({ type: "text" })
 			readonly name: string;
-			@Column({ type: 'jsonb' })
+			@Column({ type: "jsonb" })
 			readonly meta: { isCool: boolean };
 		}
 
-		const pool = await createConnectionPool({
+		const pool = createConnectionPool({
 			port: 5432,
 			user: "postgres",
 			password: "postgres",
@@ -90,20 +90,20 @@ describe("Migrations", () => {
 	});
 
 	it("should generate index changing migrations", async () => {
-		@Index(MigrationTestUser)('idx_user_name', ['name'])
+		@Index(MigrationTestUser)("idx_user_name", ["name"])
 		class MigrationTestUser extends Entity({
 			schema: "public",
 			tableName: "migration_test_user",
 		}) {
-			@Column({ type: 'uuid' })
+			@Column({ type: "uuid" })
 			readonly id: string;
-			@Column({ type: 'text' })
+			@Column({ type: "text" })
 			readonly name: string;
-			@Column({ type: 'jsonb' })
+			@Column({ type: "jsonb" })
 			readonly meta: { isCool: boolean };
 		}
 
-		const pool = await createConnectionPool({
+		const pool = createConnectionPool({
 			port: 5432,
 			user: "postgres",
 			password: "postgres",
@@ -119,16 +119,16 @@ describe("Migrations", () => {
 			);
 		});
 
-		@Index(MigrationTestUserUpdated)('idx_user_name', ['id'])
+		@Index(MigrationTestUserUpdated)("idx_user_name", ["id"])
 		class MigrationTestUserUpdated extends Entity({
 			schema: "public",
 			tableName: "migration_test_user",
 		}) {
-			@Column({ type: 'uuid' })
+			@Column({ type: "uuid" })
 			readonly id: string;
-			@Column({ type: 'text' })
+			@Column({ type: "text" })
 			readonly name: string;
-			@Column({ type: 'jsonb' })
+			@Column({ type: "jsonb" })
 			readonly meta: { isCool: boolean };
 		}
 
@@ -163,15 +163,15 @@ describe("Migrations", () => {
 				schema: "public",
 				tableName: "migration_test_user",
 			}) {
-				@Column({ type: 'uuid' })
+				@Column({ type: "uuid" })
 				readonly id: string;
-				@Column({ type: 'text' })
+				@Column({ type: "text" })
 				readonly name: string;
-				@Column({ type: 'jsonb' })
+				@Column({ type: "jsonb" })
 				readonly meta: { isCool: boolean };
 			}
 
-			pool = await createConnectionPool({
+			pool = createConnectionPool({
 				port: 5432,
 				user: "postgres",
 				password: "postgres",
@@ -223,11 +223,11 @@ describe("Migrations", () => {
 				schema: "public",
 				tableName: "migration_test_user",
 			}) {
-				@Column({ type: 'uuid' })
+				@Column({ type: "uuid" })
 				readonly id: string;
-				@Column({ type: 'uuid' })
+				@Column({ type: "uuid" })
 				readonly name: string;
-				@Column({ type: 'jsonb' })
+				@Column({ type: "jsonb" })
 				readonly meta: { isCool: boolean };
 			}
 
@@ -251,11 +251,11 @@ describe("Migrations", () => {
 				schema: "public",
 				tableName: "migration_test_user",
 			}) {
-				@Column({ type: 'uuid' })
+				@Column({ type: "uuid" })
 				readonly id: string;
-				@Column({ type: 'text', defaultValue: sql`'test'` })
+				@Column({ type: "text", defaultValue: sql`'test'` })
 				readonly name: string;
-				@Column({ type: 'jsonb' })
+				@Column({ type: "jsonb" })
 				readonly meta: { isCool: boolean };
 			}
 
@@ -279,11 +279,11 @@ describe("Migrations", () => {
 				schema: "public",
 				tableName: "migration_test_user",
 			}) {
-				@Column({ type: 'uuid' })
+				@Column({ type: "uuid" })
 				readonly id: string;
-				@Column({ type: 'text', defaultValue: sql`'test'` })
+				@Column({ type: "text", defaultValue: sql`'test'` })
 				readonly name: string;
-				@Column({ type: 'jsonb' })
+				@Column({ type: "jsonb" })
 				readonly meta: { isCool: boolean };
 			}
 
@@ -318,11 +318,11 @@ describe("Migrations", () => {
 						schema: "public",
 						tableName: "migration_test_user",
 					}) {
-						@Column({ type: 'uuid' })
+						@Column({ type: "uuid" })
 						readonly id: string;
-						@Column({ type: 'text', defaultValue: sql`'test2'` })
+						@Column({ type: "text", defaultValue: sql`'test2'` })
 						readonly name: string;
-						@Column({ type: 'jsonb' })
+						@Column({ type: "jsonb" })
 						readonly meta: { isCool: boolean };
 					}
 
@@ -367,11 +367,11 @@ describe("Migrations", () => {
 				schema: "public",
 				tableName: "migration_test_user",
 			}) {
-				@Column({ type: 'uuid' })
+				@Column({ type: "uuid" })
 				readonly id: string;
-				@Column({ type: 'text', previousName: 'name' })
+				@Column({ type: "text", previousName: "name" })
 				readonly foobar: string;
-				@Column({ type: 'jsonb' })
+				@Column({ type: "jsonb" })
 				readonly meta: { isCool: boolean };
 			}
 

@@ -89,7 +89,7 @@ Calling `getMigrationQueries` on a `Connection` will return a set of `SuggestedM
 ```ts
 import { createConnectionPool } from '@karimsa/tinyorm';
 
-const pool = await createConnectionPool({});
+const pool = createConnectionPool({});
 
 class User extends Entity({ schema: 'app', tableName: 'users' }) {
   @Column({ type: 'uuid' })
