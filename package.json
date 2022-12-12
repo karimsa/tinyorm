@@ -1,6 +1,6 @@
 {
   "name": "@karimsa/tinyorm",
-  "version": "0.0.1-7",
+  "version": "0.0.1-8",
   "description": "Minimal type-safe ORM for Postgres.",
   "types": "./dist",
   "main": "./dist/index.js",
