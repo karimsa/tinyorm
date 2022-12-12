@@ -248,13 +248,9 @@ export class JoinedQueryBuilder<
 	#getSelectedComputedFields() {
 		const selectedFieldQueries: PreparedQuery[] = [];
 		for (const [alias, { query }] of this.#selectedComputedFields.entries()) {
-			selectedFieldQueries.push({
-				...query,
-				text: [
-					...query.text.slice(0, query.text.length - 1),
-					`${query.text[query.text.length - 1]} AS "${alias}"`,
-				],
-			});
+			selectedFieldQueries.push(
+				sql.suffixQuery(sql.cloneQuery(query), ` AS "${alias}"`),
+			);
 		}
 		return selectedFieldQueries;
 	}
