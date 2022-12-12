@@ -124,11 +124,20 @@ abstract class BaseQueryBuilder<ResultShape> {
 	}
 }
 
+type ValidAlias<Alias, ReservedAliasRecord> = Alias &
+	(Alias extends keyof ReservedAliasRecord
+		? { invalid: "Cannot reuse an existing alias" }
+		: {});
+
 export class QueryBuilder<
 	Shape extends object,
 	ResultShape,
 > extends BaseQueryBuilder<ResultShape> {
 	readonly #selectedFields: string[] = [];
+	readonly #selectedComputedFields = new Map<
+		string,
+		{ query: PreparedQuery; schema: ZodSchema<PostgresValueType> }
+	>();
 	readonly #orderByValues: PreparedQuery[] = [];
 	readonly #groupByValues: PreparedQuery[] = [];
 	readonly #whereQueries: PreparedQuery[] = [];
@@ -141,8 +150,28 @@ export class QueryBuilder<
 		keys: Keys[],
 	): QueryBuilder<Shape, ResultShape & Pick<Shape, Keys>> {
 		this.#selectedFields.push(...keys);
-		// rome-ignore lint/suspicious/noExplicitAny: <explanation>
-		return this as any;
+		return this as QueryBuilder<Shape, ResultShape & Pick<Shape, Keys>>;
+	}
+
+	selectAll() {
+		for (const key of getEntityFields(this.targetFromEntity).keys()) {
+			if (!this.#selectedFields.includes(key)) {
+				this.#selectedFields.push(key);
+			}
+		}
+		return this as unknown as QueryBuilder<Shape, ResultShape & Shape>;
+	}
+
+	selectRaw<Alias extends string, T extends PostgresValueType>(
+		query: PreparedQuery,
+		alias: ValidAlias<Alias, ResultShape>,
+		schema: ZodSchema<T>,
+	) {
+		this.#selectedComputedFields.set(alias, { query, schema });
+		return this as unknown as QueryBuilder<
+			Shape,
+			ResultShape & { [key in Alias]: T }
+		>;
 	}
 
 	addWhereRaw(query: PreparedQuery) {
@@ -244,6 +273,19 @@ export class QueryBuilder<
 			SELECT ${sql.asUnescaped(
 				this.#selectedFields.map((field) => `"${field}"`).join(", "),
 			)}
+			${this.#selectedComputedFields.size === 0 ? sql`` : sql`, `}
+			${
+				this.#selectedComputedFields.size === 0
+					? sql``
+					: sql.join(
+							Array.from(this.#selectedComputedFields.entries()).flatMap(
+								([alias, { query }], index, self) => [
+									sql`${query} AS "${sql.asUnescaped(alias)}"`,
+									index === self.length - 1 ? sql`` : sql`,`,
+								],
+							),
+					  )
+			}
 			FROM ${this.targetFromEntity}
 			${
 				this.#whereQueries.length === 0
@@ -282,11 +324,6 @@ export class QueryBuilder<
 	}
 }
 
-type EntityAlias<Alias, Shapes extends Record<string, object>> = Alias &
-	(Alias extends keyof Shapes
-		? { invalid: "Cannot reuse an existing alias" }
-		: {});
-
 export class JoinedQueryBuilder<
 	Shapes extends Record<string, object>,
 	PartialShapes,
@@ -313,7 +350,7 @@ export class JoinedQueryBuilder<
 
 	innerJoin<Alias extends string, JoinedShape>(
 		joinedEntity: EntityFromShape<JoinedShape>,
-		alias: EntityAlias<Alias, Shapes>,
+		alias: ValidAlias<Alias, Shapes>,
 		condition: PreparedQuery,
 	) {
 		assertCase("join alias", alias);
@@ -336,7 +373,7 @@ export class JoinedQueryBuilder<
 
 	leftJoin<Alias extends string, JoinedShape>(
 		joinedEntity: EntityFromShape<JoinedShape>,
-		alias: EntityAlias<Alias, Shapes>,
+		alias: ValidAlias<Alias, Shapes>,
 		condition: PreparedQuery,
 	) {
 		assertCase("join alias", alias);
@@ -359,7 +396,7 @@ export class JoinedQueryBuilder<
 
 	rightJoin<Alias extends string, JoinedShape>(
 		joinedEntity: EntityFromShape<JoinedShape>,
-		alias: EntityAlias<Alias, Shapes>,
+		alias: ValidAlias<Alias, Shapes>,
 		condition: PreparedQuery,
 	) {
 		assertCase("join alias", alias);
@@ -420,7 +457,7 @@ export class JoinedQueryBuilder<
 
 	selectRaw<Alias extends string, T extends PostgresValueType>(
 		query: PreparedQuery,
-		alias: EntityAlias<Alias, Shapes>,
+		alias: ValidAlias<Alias, Shapes>,
 		schema: ZodSchema<T>,
 	) {
 		this.#selectedComputedFields.set(alias, { query, schema });
@@ -543,7 +580,7 @@ export class JoinedQueryBuilder<
 			throw new Error(`Cannot set limit twice on the same query builder`);
 		}
 		this.queryLimit = size;
-		return this as Omit<
+		return this as unknown as Omit<
 			JoinedQueryBuilder<Shapes, PartialShapes, ResultShape>,
 			"limit"
 		>;

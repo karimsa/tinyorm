@@ -383,17 +383,20 @@ describe("QueryBuilder", () => {
 			const qb = createSelectBuilder()
 				.from(User)
 				.select(["id"])
+				.selectRaw(sql`now()`, "current_time", z.date())
 				.addWhere((where) => where("name").Equals("Karim"))
 				.addWhere((where) => where("status").EqualsAny(["Active", "Inactive"]))
 				.addGroupBy("id")
 				.addOrderBy("id", "ASC")
 				.addRawOrderBy(sql`foo DESC`);
 
-			assertType<{ id: string } | null>(getResolvedType(qb.getOne));
+			assertType<{ id: string; current_time: Date } | null>(
+				getResolvedType(qb.getOne),
+			);
 			expect(qb.buildOne({ id: "user-id" })).toEqual({ id: "user-id" });
 			expectQuery(qb.getQuery()).toEqual({
 				text: `
-					SELECT "id"
+					SELECT "id", now() AS "current_time"
 					FROM "app"."user"
 					WHERE "name" = $1::text AND "status" = ANY($2::text[])
 					GROUP BY ("id")
