@@ -70,6 +70,10 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 		this.#queries = queries;
 	}
 
+	getNextBuilder(queries: PreparedQuery[]): InternalWhereBuilder<Shapes> {
+		return new InternalWhereBuilder(this.#knownEntities, queries);
+	}
+
 	getBuilder() {
 		const that = this;
 		function openWhere<
@@ -80,14 +84,16 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 			field: Key,
 		): WhereQueryComparators<
 			Shapes[Alias][Key],
-			AndWhereQueryBuilder<Shapes> & OrWhereQueryBuilder<Shapes>
+			AndWhereQueryBuilder<InternalWhereBuilder<Shapes>> &
+				OrWhereQueryBuilder<InternalWhereBuilder<Shapes>>
 		>;
 		function openWhere<Alias extends string & keyof Shapes>(
 			entityName: Alias,
 			field: JsonRef<Shapes[Alias]>,
 		): WhereQueryComparators<
 			object,
-			AndWhereQueryBuilder<Shapes> & OrWhereQueryBuilder<Shapes>
+			AndWhereQueryBuilder<InternalWhereBuilder<Shapes>> &
+				OrWhereQueryBuilder<InternalWhereBuilder<Shapes>>
 		>;
 		function openWhere(
 			entityName: string,
@@ -108,14 +114,13 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 	allOrEither(binaryOperator: "AND" | "OR") {
 		return (
 			whereBuilders: (
-				| AndWhereQueryBuilder<Shapes>
-				| OrWhereQueryBuilder<Shapes>
+				| AndWhereQueryBuilder<InternalWhereBuilder<Shapes>>
+				| OrWhereQueryBuilder<InternalWhereBuilder<Shapes>>
 			)[],
 		): InternalWhereBuilder<Shapes> => {
 			const builders =
 				whereBuilders as unknown[] as InternalWhereBuilder<Shapes>[];
-			return new InternalWhereBuilder(
-				this.#knownEntities,
+			return this.getNextBuilder(
 				builders.flatMap((builder, index) => [
 					builder.getConditionQuery(),
 					...(index === builders.length - 1
@@ -132,11 +137,17 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 	>(
 		entityName: Alias,
 		field: Key | JsonRef<Shapes[Alias]>,
-	): WhereQueryComparators<Shapes[Alias][Key], AndWhereQueryBuilder<Shapes>>;
+	): WhereQueryComparators<
+		Shapes[Alias][Key],
+		AndWhereQueryBuilder<InternalWhereBuilder<Shapes>>
+	>;
 	andWhere<Alias extends string & keyof Shapes>(
 		entityName: Alias,
 		field: JsonRef<Shapes[Alias]>,
-	): WhereQueryComparators<object, AndWhereQueryBuilder<Shapes>>;
+	): WhereQueryComparators<
+		object,
+		AndWhereQueryBuilder<InternalWhereBuilder<Shapes>>
+	>;
 	andWhere(entityName: string, field: string | JsonRef<unknown>): unknown {
 		if (this.#binaryOperator === "OR") {
 			throw new Error(
@@ -154,11 +165,17 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 	>(
 		entityName: Alias,
 		field: Key | JsonRef<Shapes[Alias]>,
-	): WhereQueryComparators<Shapes[Alias][Key], AndWhereQueryBuilder<Shapes>>;
+	): WhereQueryComparators<
+		Shapes[Alias][Key],
+		AndWhereQueryBuilder<InternalWhereBuilder<Shapes>>
+	>;
 	orWhere<Alias extends string & keyof Shapes>(
 		entityName: Alias,
 		field: JsonRef<Shapes[Alias]>,
-	): WhereQueryComparators<object, AndWhereQueryBuilder<Shapes>>;
+	): WhereQueryComparators<
+		object,
+		AndWhereQueryBuilder<InternalWhereBuilder<Shapes>>
+	>;
 	orWhere(entityName: string, field: string | JsonRef<unknown>): unknown {
 		if (this.#binaryOperator === "AND") {
 			throw new Error(
@@ -180,7 +197,8 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 		const getColumnName = () => sql.asUnescaped(column);
 		const comparators: WhereQueryComparators<
 			PostgresValueType,
-			AndWhereQueryBuilder<Shapes> & OrWhereQueryBuilder<Shapes>
+			AndWhereQueryBuilder<InternalWhereBuilder<Shapes>> &
+				OrWhereQueryBuilder<InternalWhereBuilder<Shapes>>
 		> = {
 			Equals: (value) => this.#appendQuery(sql`${getColumnName()} = ${value}`),
 			NotEquals: (value) =>
@@ -234,18 +252,16 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 			this.#getColumnName(alias, field).value,
 		) as unknown as WhereQueryComparators<
 			unknown,
-			AndWhereQueryBuilder<Shapes> & OrWhereQueryBuilder<Shapes>
+			AndWhereQueryBuilder<InternalWhereBuilder<Shapes>> &
+				OrWhereQueryBuilder<InternalWhereBuilder<Shapes>>
 		>;
 	}
 
 	#appendQuery(query: PreparedQuery) {
 		if (this.#queries.length === 0) {
-			return new InternalWhereBuilder<Shapes>(this.#knownEntities, [
-				...this.#queries,
-				query,
-			]);
+			return this.getNextBuilder([...this.#queries, query]);
 		}
-		return new InternalWhereBuilder<Shapes>(this.#knownEntities, [
+		return this.getNextBuilder([
 			...this.#queries,
 			sql.prefixQuery(this.#binaryOperator!, query),
 		]);
@@ -263,16 +279,21 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 	}
 }
 
-export type AndWhereQueryBuilder<Shapes extends Record<string, object>> = Pick<
-	InternalWhereBuilder<Shapes>,
-	"andWhere" | "getQuery"
->;
-export type OrWhereQueryBuilder<Shapes extends Record<string, object>> = Pick<
-	InternalWhereBuilder<Shapes>,
-	"orWhere" | "getQuery"
->;
 export type WhereQueryBuilder<Shapes extends Record<string, object>> =
 	ReturnType<InternalWhereBuilder<Shapes>["getBuilder"]>;
+
+export type AndWhereQueryBuilder<
+	QueryBuilder extends { getBuilder(): unknown },
+> = {
+	andWhere: ReturnType<QueryBuilder["getBuilder"]>;
+	getQuery: () => PreparedQuery;
+};
+export type OrWhereQueryBuilder<
+	QueryBuilder extends { getBuilder(): unknown },
+> = {
+	orWhere: ReturnType<QueryBuilder["getBuilder"]>;
+	getQuery: () => PreparedQuery;
+};
 
 export function createWhereBuilder<Shapes extends Record<string, object>>(
 	knownEntities:
