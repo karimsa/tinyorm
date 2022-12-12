@@ -1,7 +1,7 @@
 {
   "name": "@karimsa/tinyorm",
   "version": "0.0.0",
-  "description": "",
+  "description": "Minimal type-safe ORM for Postgres.",
   "types": "./src",
   "scripts": {
     "test": "jest",
@@ -34,5 +34,8 @@
   "dependencies": {
     "lodash.snakecase": "4.1.1",
     "pino": "8.7.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
