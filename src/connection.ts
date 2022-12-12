@@ -258,11 +258,11 @@ export class ConnectionPool {
 
 		const columns = [...fieldSet.entries()];
 
-		return sql.join([
-			sql`CREATE TABLE ${sql.asUnescaped(
+		return sql`
+			CREATE TABLE ${sql.asUnescaped(
 				mustBeNew ? "" : "IF NOT EXISTS",
-			)} ${sql.getEntityRef(entity)}`,
-			sql.brackets(
+			)} ${sql.getEntityRef(entity)}
+			${sql.brackets(
 				sql.join(
 					columns.map(([column, options], index) =>
 						sql.unescaped(
@@ -272,8 +272,8 @@ export class ConnectionPool {
 						),
 					),
 				),
-			),
-		]);
+			)}
+		`;
 	}
 
 	static getInsertQuery<Shape>(entity: EntityFromShape<Shape>, entry: Shape) {
@@ -284,13 +284,13 @@ export class ConnectionPool {
 
 		const columns = [...fieldSet.keys()];
 
-		return sql.join([
-			sql`INSERT INTO ${sql.getEntityRef(entity)} `,
-			sql.brackets(
+		return sql`
+			INSERT INTO ${sql.getEntityRef(entity)}
+			${sql.brackets(
 				sql.unescaped(columns.map((column) => `"${column}"`).join(", ")),
-			),
-			sql.unescaped(` VALUES `),
-			sql.brackets(
+			)}
+			VALUES
+			${sql.brackets(
 				sql.join(
 					columns.map(
 						(column, index) =>
@@ -299,8 +299,8 @@ export class ConnectionPool {
 							}${sql.asUnescaped(index === columns.length - 1 ? "" : ", ")}`,
 					),
 				),
-			),
-		]);
+			)}
+		`;
 	}
 
 	static getDeleteFromQuery<Shape extends object>(

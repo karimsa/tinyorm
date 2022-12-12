@@ -57,12 +57,11 @@ export function Index<Shape>(
 				  )
 				: columns;
 			const finalizedQuery = finalizeQuery(
-				sql.join([
-					sql`CREATE${sql.asUnescaped(
-						options?.unique ? " UNIQUE" : "",
-					)} INDEX IF NOT EXISTS "${sql.asUnescaped(name)}" ON ${entity} `,
-					indexQuery,
-				]),
+				sql`CREATE${sql.asUnescaped(
+					options?.unique ? " UNIQUE" : "",
+				)} INDEX IF NOT EXISTS "${sql.asUnescaped(
+					name,
+				)}" ON ${entity} ${indexQuery}`,
 			);
 			if (finalizedQuery.values.length > 0) {
 				throw new Error(

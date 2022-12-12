@@ -299,7 +299,7 @@ export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 	}
 
 	getQuery(): PreparedQuery {
-		return sql.prefixQuery(` WHERE `, sql.join(this.#queries));
+		return sql` WHERE ${sql.join(this.#queries)}`;
 	}
 }
 

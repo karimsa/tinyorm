@@ -492,25 +492,26 @@ export class JoinedQueryBuilder<
 			throw new Error(`No fields selected, cannot perform select query`);
 		}
 
-		return sql.join([
-			sql` SELECT ${sql.asUnescaped(
+		return sql`
+			SELECT ${sql.asUnescaped(
 				[
 					...selectedFields,
 
 					// Insert a trailing comma if computed fields will follow
 					...(selectedComputedFields.length === 0 ? [] : [""]),
 				].join(", "),
-			)} `,
-			...selectedComputedFields,
-			sql` FROM ${sql.getEntityRef(
-				this.targetFromEntity,
-				this.targetEntityAlias,
-			)} `,
-			...this.#joins,
-			...(this.#whereQuery ? [this.#whereQuery] : []),
-			this.#getGroupBy(),
-			this.#getOrderBy(),
-		]);
+			)}
+			${
+				selectedComputedFields.length > 0
+					? sql.join(selectedComputedFields)
+					: sql``
+			}
+			FROM ${sql.getEntityRef(this.targetFromEntity, this.targetEntityAlias)}
+			${this.#joins.length > 0 ? sql.join(this.#joins) : sql``}
+			${this.#whereQuery ?? sql``}
+			${this.#getGroupBy()}
+			${this.#getOrderBy()}
+		`;
 	}
 
 	buildOne(row: unknown): ResultShape | null {
