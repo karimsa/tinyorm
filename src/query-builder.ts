@@ -23,6 +23,15 @@ abstract class BaseQueryBuilder<ResultShape> {
 	abstract buildOne(row: unknown): ResultShape | null;
 	abstract getPreparedQuery(): PreparedQuery;
 
+	protected queryLimit?: number;
+	protected queryOffset?: number;
+
+	protected getPaginationQuery() {
+		return sql`${
+			this.queryOffset !== undefined ? sql` OFFSET ${this.queryOffset}` : sql``
+		}${this.queryLimit !== undefined ? sql` LIMIT ${this.queryLimit}` : sql``}`;
+	}
+
 	getQuery(): FinalizedQuery {
 		return finalizeQuery(this.getPreparedQuery());
 	}
@@ -178,21 +187,19 @@ export class QueryBuilder<
 		return sql.wrapQuery(` GROUP BY (`, query, `)`);
 	}
 
-	#queryLimit?: number;
 	limit(size: number) {
-		if (this.#queryLimit !== undefined) {
+		if (this.queryLimit !== undefined) {
 			throw new Error(`Cannot set limit twice on the same query builder`);
 		}
-		this.#queryLimit = size;
+		this.queryLimit = size;
 		return this as Omit<QueryBuilder<Shape, ResultShape>, "limit">;
 	}
 
-	#queryOffset?: number;
 	offset(offset: number) {
-		if (this.#queryOffset !== undefined) {
+		if (this.queryOffset !== undefined) {
 			throw new Error(`Cannot set offset twice on the same query builder`);
 		}
-		this.#queryOffset = offset;
+		this.queryOffset = offset;
 		return this as unknown as Omit<QueryBuilder<Shape, ResultShape>, "offset">;
 	}
 
@@ -217,6 +224,7 @@ export class QueryBuilder<
 			}
 			${this.#getGroupBy()}
 			${this.#getOrderBy()}
+			${this.getPaginationQuery()}
 		`;
 	}
 
@@ -496,24 +504,22 @@ export class JoinedQueryBuilder<
 		return sql.wrapQuery(` GROUP BY (`, query, `)`);
 	}
 
-	#queryLimit?: number;
 	limit(size: number) {
-		if (this.#queryLimit !== undefined) {
+		if (this.queryLimit !== undefined) {
 			throw new Error(`Cannot set limit twice on the same query builder`);
 		}
-		this.#queryLimit = size;
+		this.queryLimit = size;
 		return this as Omit<
 			JoinedQueryBuilder<Shapes, PartialShapes, ResultShape>,
 			"limit"
 		>;
 	}
 
-	#queryOffset?: number;
 	offset(offset: number) {
-		if (this.#queryOffset !== undefined) {
+		if (this.queryOffset !== undefined) {
 			throw new Error(`Cannot set offset twice on the same query builder`);
 		}
-		this.#queryOffset = offset;
+		this.queryOffset = offset;
 		return this as unknown as Omit<
 			JoinedQueryBuilder<Shapes, PartialShapes, ResultShape>,
 			"offset"
@@ -547,14 +553,7 @@ export class JoinedQueryBuilder<
 			${this.#whereQueries.length > 0 ? sql.join(this.#whereQueries) : sql``}
 			${this.#getGroupBy()}
 			${this.#getOrderBy()}
-			${
-				this.#queryOffset !== undefined
-					? sql` OFFSET ${this.#queryOffset}`
-					: sql``
-			}
-			${
-				this.#queryLimit !== undefined ? sql` LIMIT ${this.#queryLimit}` : sql``
-			}
+			${this.getPaginationQuery()}
 		`;
 	}
 
