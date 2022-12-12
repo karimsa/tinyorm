@@ -1,4 +1,5 @@
 import { PoolClient as PostgresClient } from "pg";
+import PostgresQueryCursor from "pg-cursor";
 import { ZodSchema } from "zod";
 import { Connection, QueryError } from "./connection";
 import { EntityFromShape, getEntityFields } from "./entity";
@@ -20,7 +21,8 @@ import {
 } from "./where-builder";
 
 abstract class BaseQueryBuilder<ResultShape> {
-	abstract buildOne(row: unknown): ResultShape | null;
+	abstract buildOne(row: null): null;
+	abstract buildOne(row: unknown): ResultShape;
 	abstract getPreparedQuery(): PreparedQuery;
 
 	protected queryLimit?: number;
@@ -89,6 +91,36 @@ abstract class BaseQueryBuilder<ResultShape> {
 		const query = this.getQuery();
 		const rows = await this.executeQuery(client, query);
 		return this.buildMany(rows);
+	}
+
+	async *getCursor(
+		clientOrConnection: PostgresClient | Connection,
+		cursorOptions?: {
+			initialOffset?: number;
+			pageSize?: number;
+		},
+	): AsyncGenerator<Awaited<ResultShape>, void, undefined> {
+		const pageSize = cursorOptions?.pageSize ?? 100;
+
+		this.queryLimit = this.queryOffset = undefined;
+		const client =
+			clientOrConnection instanceof Connection
+				? clientOrConnection.client
+				: clientOrConnection;
+		const cursor = client.query(
+			new PostgresQueryCursor(this.getQuery().text, this.getQuery().values),
+		);
+
+		while (true) {
+			const results = await cursor.read(pageSize);
+			if (results.length === 0) {
+				break;
+			}
+
+			for (const result of results) {
+				yield this.buildOne(result);
+			}
+		}
 	}
 }
 
@@ -228,6 +260,8 @@ export class QueryBuilder<
 		`;
 	}
 
+	buildOne(row: null): null;
+	buildOne(row: unknown): ResultShape;
 	buildOne(row: unknown): ResultShape | null {
 		if (row === null) {
 			return null;
@@ -557,6 +591,8 @@ export class JoinedQueryBuilder<
 		`;
 	}
 
+	buildOne(row: null): null;
+	buildOne(row: unknown): ResultShape;
 	buildOne(row: unknown): ResultShape | null {
 		if (row === null) {
 			return null;
