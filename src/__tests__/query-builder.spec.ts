@@ -133,6 +133,8 @@ describe("QueryBuilder", () => {
 							where("organization", "name").Like("Foko"),
 						]),
 					)
+					.offset(5)
+					.limit(10)
 					.getQuery(),
 			).toEqual({
 				text: `
@@ -143,8 +145,10 @@ describe("QueryBuilder", () => {
 					INNER JOIN "app"."organization" AS "organization" ON organization.id = any(user.organization_ids)
 					WHERE ("user"."name" LIKE $1::text AND "user"."status" = ANY($2::text[]))
 					   OR "organization"."name" LIKE $3::text
+					OFFSET $4::double precision
+					LIMIT $5::double precision
 				`,
-				values: ["%Karim%", ["Active"], "Foko"],
+				values: ["%Karim%", ["Active"], "Foko", 5, 10],
 			});
 
 			assertType<{
