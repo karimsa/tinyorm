@@ -227,6 +227,7 @@ type EntityAlias<Alias, Shapes extends Record<string, object>> = Alias &
 
 export class JoinedQueryBuilder<
 	Shapes extends Record<string, object>,
+	PartialShapes,
 	ResultShape,
 > extends BaseQueryBuilder<ResultShape> {
 	readonly #selectedFields = new Map<string, string[]>();
@@ -269,6 +270,59 @@ export class JoinedQueryBuilder<
 		);
 		return this as unknown as JoinedQueryBuilder<
 			Shapes & { [key in Alias]: JoinedShape },
+			PartialShapes,
+			ResultShape
+		>;
+	}
+
+	leftJoin<Alias extends string, JoinedShape>(
+		joinedEntity: EntityFromShape<JoinedShape>,
+		alias: EntityAlias<Alias, Shapes>,
+		condition: PreparedQuery,
+	) {
+		assertCase("join alias", alias);
+		if (this.#includedEntites.has(alias)) {
+			throw new Error(
+				`Cannot join two entities with same alias (attempted to alias ${joinedEntity.tableName} as ${alias})`,
+			);
+		}
+
+		this.#includedEntites.set(alias, joinedEntity);
+		this.#joins.push(
+			joinQueries(
+				sql` LEFT JOIN ${sql.getEntityRef(joinedEntity, alias)} ON `,
+				condition,
+			),
+		);
+		return this as unknown as JoinedQueryBuilder<
+			Shapes & { [key in Alias]: JoinedShape },
+			PartialShapes | Alias,
+			ResultShape
+		>;
+	}
+
+	rightJoin<Alias extends string, JoinedShape>(
+		joinedEntity: EntityFromShape<JoinedShape>,
+		alias: EntityAlias<Alias, Shapes>,
+		condition: PreparedQuery,
+	) {
+		assertCase("join alias", alias);
+		if (this.#includedEntites.has(alias)) {
+			throw new Error(
+				`Cannot join two entities with same alias (attempted to alias ${joinedEntity.tableName} as ${alias})`,
+			);
+		}
+
+		this.#includedEntites.set(alias, joinedEntity);
+		this.#joins.push(
+			joinQueries(
+				sql` RIGHT JOIN ${sql.getEntityRef(joinedEntity, alias)} ON `,
+				condition,
+			),
+		);
+		return this as unknown as JoinedQueryBuilder<
+			Shapes & { [key in Alias]: JoinedShape },
+			PartialShapes | keyof Shapes,
 			ResultShape
 		>;
 	}
@@ -283,7 +337,10 @@ export class JoinedQueryBuilder<
 
 		return this as unknown as JoinedQueryBuilder<
 			Shapes,
-			ResultShape & { [key in Alias]: Pick<Shapes[Alias], Keys> }
+			PartialShapes,
+			Alias extends PartialShapes
+				? ResultShape & { [key in Alias]?: Pick<Shapes[Alias], Keys> }
+				: ResultShape & { [key in Alias]: Pick<Shapes[Alias], Keys> }
 		>;
 	}
 
@@ -301,6 +358,7 @@ export class JoinedQueryBuilder<
 
 		return this as unknown as JoinedQueryBuilder<
 			Shapes,
+			PartialShapes,
 			ResultShape & {
 				[key in Alias]: Pick<Shapes[Alias], string & keyof Shapes[Alias]>;
 			}
@@ -315,6 +373,7 @@ export class JoinedQueryBuilder<
 		this.#selectedComputedFields.set(alias, { query, schema });
 		return this as unknown as JoinedQueryBuilder<
 			Shapes,
+			PartialShapes,
 			ResultShape & { [key in Alias]: T }
 		>;
 	}
@@ -342,7 +401,7 @@ export class JoinedQueryBuilder<
 	whereRaw(query: PreparedQuery) {
 		this.#whereQuery = query;
 		return this as unknown as Omit<
-			JoinedQueryBuilder<Shapes, ResultShape>,
+			JoinedQueryBuilder<Shapes, PartialShapes, ResultShape>,
 			"where" | "whereRaw"
 		>;
 	}
@@ -358,7 +417,7 @@ export class JoinedQueryBuilder<
 			createJoinWhereBuilder(this.#includedEntites),
 		).getQuery();
 		return this as unknown as Omit<
-			JoinedQueryBuilder<Shapes, ResultShape>,
+			JoinedQueryBuilder<Shapes, PartialShapes, ResultShape>,
 			"where" | "whereRaw"
 		>;
 	}
@@ -518,7 +577,7 @@ export function createJoinBuilder() {
 		from<Alias extends string, T extends object>(
 			entity: EntityFromShape<T>,
 			alias: Alias,
-		): JoinedQueryBuilder<{ [key in Alias]: T }, {}> {
+		): JoinedQueryBuilder<{ [key in Alias]: T }, never, {}> {
 			return new JoinedQueryBuilder(entity, alias);
 		},
 	};

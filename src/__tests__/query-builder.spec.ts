@@ -182,6 +182,85 @@ describe("QueryBuilder", () => {
 				),
 			);
 		});
+		it("should allow outer joins", async () => {
+			// Left join
+			expectQuery(
+				createJoinBuilder()
+					.from(User, "user")
+					.leftJoin(
+						Organization,
+						"organization",
+						sql`organization.id = any(user.organization_ids)`,
+					)
+					.select("user", ["id", "name"])
+					.select("organization", ["name"])
+					.getQuery(),
+			).toEqual({
+				text: `
+					SELECT
+						"user"."id" AS "user_id", "user"."name" AS "user_name",
+						"organization"."name" AS "organization_name"
+					FROM "app"."user" AS "user"
+					LEFT JOIN "app"."organization" AS "organization" ON organization.id = any(user.organization_ids)
+				`,
+				values: [],
+			});
+			assertType<{
+				user: { id: string; name: string };
+				organization?: { name: string } | null;
+			} | null>(
+				getResolvedType(
+					createJoinBuilder()
+						.from(User, "user")
+						.leftJoin(
+							Organization,
+							"organization",
+							sql`organization.id = any(user.organization_ids)`,
+						)
+						.select("user", ["id", "name"])
+						.select("organization", ["name"]).getOne,
+				),
+			);
+
+			// Right join
+			expectQuery(
+				createJoinBuilder()
+					.from(User, "user")
+					.rightJoin(
+						Organization,
+						"organization",
+						sql`organization.id = any(user.organization_ids)`,
+					)
+					.select("user", ["id", "name"])
+					.select("organization", ["name"])
+					.getQuery(),
+			).toEqual({
+				text: `
+						SELECT
+							"user"."id" AS "user_id", "user"."name" AS "user_name",
+							"organization"."name" AS "organization_name"
+						FROM "app"."user" AS "user"
+						RIGHT JOIN "app"."organization" AS "organization" ON organization.id = any(user.organization_ids)
+					`,
+				values: [],
+			});
+			assertType<{
+				user?: { id: string; name: string };
+				organization: { name: string } | null;
+			} | null>(
+				getResolvedType(
+					createJoinBuilder()
+						.from(User, "user")
+						.rightJoin(
+							Organization,
+							"organization",
+							sql`organization.id = any(user.organization_ids)`,
+						)
+						.select("user", ["id", "name"])
+						.select("organization", ["name"]).getOne,
+				),
+			);
+		});
 		it("should build results correctly", async () => {
 			expect(
 				createJoinBuilder()
