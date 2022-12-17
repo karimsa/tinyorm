@@ -4,8 +4,10 @@
   "version": "0.0.0",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "start": "next start"
+    "build": "yarn build-api-ref && next build",
+    "start": "next start",
+    "build-api-ref": "typedoc && rm -rf ./pages/reference && mkdir -p ./pages/reference && node ./scripts/build-api-reference.js",
+    "dev-api-ref": "nodemon -w ../src -w scripts -w typedoc.json -e ts,js --exec \"yarn build-api-ref\""
   },
   "license": "MIT",
   "dependencies": {
@@ -18,6 +20,7 @@
   "devDependencies": {
     "@types/node": "18.11.10",
     "rome": "11.0.0",
+    "typedoc": "0.23.22",
     "typescript": "4.9.3"
   }
 }

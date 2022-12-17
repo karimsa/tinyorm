@@ -19,13 +19,13 @@ function flattenNode(node) {
 	return [node];
 }
 
-const docNodes = flattenNode(require("../docs/tmp/api-reference.json")).sort(
+const docNodes = flattenNode(require("../tmp/api-reference.json")).sort(
 	(left, right) => {
 		return left.name.localeCompare(right.name);
 	},
 );
 const mainExport = fs.readFileSync(
-	path.resolve(__dirname, "..", "src", "index.ts"),
+	path.resolve(__dirname, "..", "..", "src", "index.ts"),
 	"utf8",
 );
 
@@ -214,19 +214,12 @@ for (const node of docNodes) {
 
 	meta[fileName] = node.name;
 	fs.writeFileSync(
-		path.resolve(
-			__dirname,
-			"..",
-			"docs",
-			"pages",
-			"reference",
-			`${fileName}.mdx`,
-		),
+		path.resolve(__dirname, "..", "pages", "reference", `${fileName}.mdx`),
 		page.join("\n"),
 	);
 }
 
 fs.writeFileSync(
-	path.resolve(__dirname, "..", "docs", "pages", "reference", "_meta.json"),
+	path.resolve(__dirname, "..", "pages", "reference", "_meta.json"),
 	JSON.stringify(meta, null, "\t"),
 );

@@ -1,7 +1,0 @@
-{
-    "$schema": "https://typedoc.org/schema.json",
-    "entryPoints": ["./src/index.ts", "./src/queries.ts"],
-    "cleanOutputDir": true,
-    "skipErrorChecking": true,
-    "json": "./docs/tmp/api-reference.json"
-}
