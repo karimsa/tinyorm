@@ -3,7 +3,6 @@ import {
 	createJoinWhereBuilder,
 	createSingleWhereBuilder,
 	Entity,
-	finalizeQuery,
 	sql,
 } from "../";
 import { expectQuery } from "./util";
@@ -37,7 +36,7 @@ describe("WhereBuilder", () => {
 		it("should allow building where clauses", () => {
 			// Find all users with a name similar to 'Karim'
 			expectQuery(
-				finalizeQuery(where("user", "name").Like("%Karim%").getQuery()),
+				sql.finalize(where("user", "name").Like("%Karim%").getQuery()),
 			).toEqual({
 				text: `
 					WHERE "user"."name" LIKE $1::text
@@ -47,7 +46,7 @@ describe("WhereBuilder", () => {
 
 			// Find all users with a name similar to 'Karim' OR is any of ('Bob', 'Alice')
 			expectQuery(
-				finalizeQuery(
+				sql.finalize(
 					where("user", "name")
 						.Like("%Karim%")
 						.orWhere("user", "name")
@@ -61,7 +60,7 @@ describe("WhereBuilder", () => {
 				values: ["%Karim%", ["Bob", "Alice"]],
 			});
 			expectQuery(
-				finalizeQuery(
+				sql.finalize(
 					where
 						.all([
 							where.either([
@@ -84,7 +83,7 @@ describe("WhereBuilder", () => {
 		it("should allow JSONB queries", () => {
 			// Check top-level JSON field value
 			expectQuery(
-				finalizeQuery(
+				sql.finalize(
 					where("post", sql.json(Post).content.type)
 						.CastAs("text")
 						.Equals("text")
@@ -99,7 +98,7 @@ describe("WhereBuilder", () => {
 
 			// Check nested JSON field value
 			expectQuery(
-				finalizeQuery(
+				sql.finalize(
 					where("post", sql.json(Post).content.nestedObject.hello)
 						.CastAs("text")
 						.Equals("world")
@@ -112,7 +111,7 @@ describe("WhereBuilder", () => {
 				values: ["world"],
 			});
 			expectQuery(
-				finalizeQuery(
+				sql.finalize(
 					where("post", sql.json(Post).content.nestedObject.isBool)
 						.CastAs("boolean")
 						.Equals(true)
@@ -127,7 +126,7 @@ describe("WhereBuilder", () => {
 
 			// Sub-object checks
 			expectQuery(
-				finalizeQuery(
+				sql.finalize(
 					where("post", sql.json(Post).content.nestedObject)
 						.JsonContains({ isBool: true })
 						.getQuery(),
@@ -147,7 +146,7 @@ describe("WhereBuilder", () => {
 		it("should allow building where clauses", () => {
 			// Find all users with a name similar to 'Karim'
 			expectQuery(
-				finalizeQuery(where("name").Like("%Karim%").getQuery()),
+				sql.finalize(where("name").Like("%Karim%").getQuery()),
 			).toEqual({
 				text: `
 					WHERE "name" LIKE $1::text
@@ -157,7 +156,7 @@ describe("WhereBuilder", () => {
 
 			// Find all users with a name similar to 'Karim' OR is any of ('Bob', 'Alice')
 			expectQuery(
-				finalizeQuery(
+				sql.finalize(
 					where("name")
 						.Like("%Karim%")
 						.orWhere("name")

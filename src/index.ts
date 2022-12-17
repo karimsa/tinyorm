@@ -16,7 +16,6 @@ export {
 } from "./migrations";
 export {
 	FinalizedQuery,
-	finalizeQuery,
 	PostgresSimpleValueType,
 	PostgresValueType,
 	PreparedQuery,

@@ -7,7 +7,7 @@ import {
 	TableColumnCatalog,
 	TableIndexCatalog,
 } from "./pgcatalog";
-import { FinalizedQuery, finalizeQuery, sql } from "./queries";
+import { FinalizedQuery, sql } from "./queries";
 import { createJoinBuilder } from "./query-builder";
 
 export type MigrationReason =
@@ -48,7 +48,7 @@ export class MigrationGenerator {
 			migrationQueries.push({
 				reason: "Missing Schema",
 				queries: [
-					finalizeQuery(
+					sql.finalize(
 						sql`CREATE SCHEMA IF NOT EXISTS "${sql.asUnescaped(schemaName)}"`,
 					),
 				],
@@ -64,7 +64,7 @@ export class MigrationGenerator {
 		migrationQueries.push({
 			reason: "Missing Table",
 			queries: [
-				finalizeQuery(ConnectionPool.getCreateTableQuery(entity, false)),
+				sql.finalize(ConnectionPool.getCreateTableQuery(entity, false)),
 			],
 		});
 
@@ -109,7 +109,7 @@ export class MigrationGenerator {
 					migrationQueries.push({
 						reason: "Index Renamed",
 						queries: [
-							finalizeQuery(
+							sql.finalize(
 								sql`ALTER INDEX "${sql.asUnescaped(
 									entity.schema,
 								)}"."${sql.asUnescaped(
@@ -125,7 +125,7 @@ export class MigrationGenerator {
 					migrationQueries.push({
 						reason: "Index Updated",
 						queries: [
-							finalizeQuery(
+							sql.finalize(
 								sql`DROP INDEX IF EXISTS "${sql.asUnescaped(
 									entity.schema,
 								)}"."${sql.asUnescaped(indexName)}"`,
@@ -149,7 +149,7 @@ export class MigrationGenerator {
 				migrationQueries.push({
 					reason: "Unused Index",
 					queries: [
-						finalizeQuery(
+						sql.finalize(
 							sql`DROP INDEX IF EXISTS "${sql.asUnescaped(
 								entity.schema,
 							)}"."${sql.asUnescaped(existingIndex.index_entry.indexname)}"`,
@@ -204,7 +204,7 @@ export class MigrationGenerator {
 					migrations.push({
 						reason: "Column Renamed",
 						queries: [
-							finalizeQuery(
+							sql.finalize(
 								sql`ALTER TABLE "${sql.asUnescaped(
 									entity.schema,
 								)}"."${sql.asUnescaped(
@@ -225,7 +225,7 @@ export class MigrationGenerator {
 					migrations.push({
 						reason: "Column Default Updated",
 						queries: [
-							finalizeQuery(
+							sql.finalize(
 								sql`ALTER TABLE "${sql.asUnescaped(
 									entity.schema,
 								)}"."${sql.asUnescaped(
@@ -247,7 +247,7 @@ export class MigrationGenerator {
 					migrations.push({
 						reason: "Column Default Updated",
 						queries: [
-							finalizeQuery(
+							sql.finalize(
 								sql`ALTER TABLE "${sql.asUnescaped(
 									entity.schema,
 								)}"."${sql.asUnescaped(
@@ -265,7 +265,7 @@ export class MigrationGenerator {
 					migrations.push({
 						reason: "Column Type Updated",
 						queries: [
-							finalizeQuery(
+							sql.finalize(
 								sql`ALTER TABLE "${sql.asUnescaped(
 									entity.schema,
 								)}"."${sql.asUnescaped(
@@ -286,7 +286,7 @@ export class MigrationGenerator {
 				migrations.push({
 					reason: "Unused Column",
 					queries: [
-						finalizeQuery(
+						sql.finalize(
 							sql`ALTER TABLE "${sql.asUnescaped(
 								entity.schema,
 							)}"."${sql.asUnescaped(

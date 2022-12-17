@@ -5,7 +5,6 @@ import { Connection, QueryError } from "./connection";
 import { EntityFromShape, getEntityFields } from "./entity";
 import {
 	FinalizedQuery,
-	finalizeQuery,
 	PostgresValueType,
 	PreparedQuery,
 	sql,
@@ -35,7 +34,7 @@ abstract class BaseQueryBuilder<ResultShape> {
 	}
 
 	getQuery(): FinalizedQuery {
-		return finalizeQuery(this.getPreparedQuery());
+		return sql.finalize(this.getPreparedQuery());
 	}
 
 	buildMany(rows: unknown[]): ResultShape[] {

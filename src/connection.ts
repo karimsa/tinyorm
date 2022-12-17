@@ -13,12 +13,7 @@ import {
 } from "./entity";
 import { debug } from "./logger";
 import { MigrationGenerator, SuggestedMigration } from "./migrations";
-import {
-	FinalizedQuery,
-	finalizeQuery,
-	PostgresValueType,
-	sql,
-} from "./queries";
+import { FinalizedQuery, PostgresValueType, sql } from "./queries";
 import { createEventEmitter, TypeSafeEventEmitter } from "./utils";
 import {
 	createSingleWhereBuilder,
@@ -137,7 +132,7 @@ export class Connection
 	 */
 	async createNewTable(entity: EntityFromShape<unknown>) {
 		await this.query(
-			finalizeQuery(ConnectionPool.getCreateTableQuery(entity, true)),
+			sql.finalize(ConnectionPool.getCreateTableQuery(entity, true)),
 		);
 	}
 
@@ -148,7 +143,7 @@ export class Connection
 	 */
 	async createTable(entity: EntityFromShape<unknown>) {
 		return this.query(
-			finalizeQuery(ConnectionPool.getCreateTableQuery(entity, false)),
+			sql.finalize(ConnectionPool.getCreateTableQuery(entity, false)),
 		);
 	}
 
@@ -158,7 +153,7 @@ export class Connection
 	 * @returns promise that resolves with void when the table has been dropped
 	 */
 	async dropTable(entity: EntityFromShape<unknown>) {
-		return this.query(finalizeQuery(sql`DROP TABLE IF EXISTS ${entity}`));
+		return this.query(sql.finalize(sql`DROP TABLE IF EXISTS ${entity}`));
 	}
 
 	/**
@@ -169,7 +164,7 @@ export class Connection
 	 */
 	async insertOne<Shape>(entity: EntityFromShape<Shape>, entry: Shape) {
 		return this.query(
-			finalizeQuery(ConnectionPool.getInsertQuery(entity, entry)),
+			sql.finalize(ConnectionPool.getInsertQuery(entity, entry)),
 		);
 	}
 
@@ -184,7 +179,7 @@ export class Connection
 		whereBuilder: (where: SingleWhereQueryBuilder<Shape>) => WhereQueryBuilder,
 	) {
 		return this.query(
-			finalizeQuery(ConnectionPool.getDeleteFromQuery(entity, whereBuilder)),
+			sql.finalize(ConnectionPool.getDeleteFromQuery(entity, whereBuilder)),
 		);
 	}
 

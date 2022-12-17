@@ -508,28 +508,38 @@ export const sql = Object.assign(
 		brackets(query: PreparedQuery) {
 			return this.wrapQuery("(", query, ")");
 		},
+
+		/**
+		 * Finalizes a PreparedQuery into a FinalizedQuery.
+		 *
+		 * PreparedQueries are raw queries that cannot be executed against postgres yet,
+		 * because not all the parameters are known yet.
+		 *
+		 * FinalizedQueries are queries that can be executed against postgres, because
+		 * all the parameters are known, so placeholders can be generated correctly.
+		 *
+		 * A FinalizedQuery cannot be modified, but PreparedQueries can be modified.
+		 */
+		finalize(query: PreparedQuery): FinalizedQuery {
+			const finalizedQuery: FinalizedQuery = {
+				text: query.text[0] ?? "",
+				values: [],
+			};
+			for (const [index, queryVar] of query.params.entries()) {
+				if (isUnescapedVariable(queryVar)) {
+					finalizedQuery.text += `${queryVar.value}${query.text[index + 1]}`;
+				} else {
+					finalizedQuery.text += `${castValue(
+						`$${finalizedQuery.values.length + 1}`,
+						queryVar,
+					)} ${query.text[index + 1]}`;
+					finalizedQuery.values.push(queryVar.value);
+				}
+			}
+			return finalizedQuery;
+		},
 	},
 );
-
-// Finalizes a prepared query into a query that is accepted by 'pg'
-export function finalizeQuery(query: PreparedQuery): FinalizedQuery {
-	const finalizedQuery: FinalizedQuery = {
-		text: query.text[0] ?? "",
-		values: [],
-	};
-	for (const [index, queryVar] of query.params.entries()) {
-		if (isUnescapedVariable(queryVar)) {
-			finalizedQuery.text += `${queryVar.value}${query.text[index + 1]}`;
-		} else {
-			finalizedQuery.text += `${castValue(
-				`$${finalizedQuery.values.length + 1}`,
-				queryVar,
-			)} ${query.text[index + 1]}`;
-			finalizedQuery.values.push(queryVar.value);
-		}
-	}
-	return finalizedQuery;
-}
 
 export function isFinalizedQuery(query: unknown): query is FinalizedQuery {
 	return (
@@ -573,7 +583,7 @@ function serializePostgresValue(value: unknown) {
 }
 
 export function unsafeFlattenQuery(query: PreparedQuery): PreparedQuery {
-	const finalizedQuery = finalizeQuery({
+	const finalizedQuery = sql.finalize({
 		text: query.text,
 		params: query.params.map((param) => {
 			if (isUnescapedVariable(param)) {

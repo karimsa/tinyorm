@@ -1,5 +1,5 @@
 import { describe, it } from "@jest/globals";
-import { Entity, finalizeQuery, sql } from "..";
+import { Entity, sql } from "..";
 import { Column, isEntity } from "../entity";
 import { readJsonRef } from "../queries";
 import { expectQuery } from "./util";
@@ -10,7 +10,7 @@ describe("sql", () => {
 
 		expect(isEntity(foo)).toEqual(true);
 		expectQuery(
-			finalizeQuery(sql`
+			sql.finalize(sql`
 				SELECT *
 				FROM ${foo}
 				WHERE created_at >= ${new Date("2022-01-01T20:47:18.789Z")}
@@ -33,7 +33,7 @@ describe("sql", () => {
 	});
 	it("should join prepared statements with multiple variables", () => {
 		expectQuery(
-			finalizeQuery(
+			sql.finalize(
 				sql.join([
 					sql`
 						SELECT *
@@ -54,7 +54,7 @@ describe("sql", () => {
 	});
 	it("should prepare query statements with interpolated values (with casts)", () => {
 		expectQuery(
-			finalizeQuery(sql`
+			sql.finalize(sql`
 				SELECT *
 				FROM foo
 				WHERE created_at >= ${sql.asText(true)}
@@ -64,7 +64,7 @@ describe("sql", () => {
 			values: ["true"],
 		});
 		expectQuery(
-			finalizeQuery(sql`
+			sql.finalize(sql`
 				SELECT *
 				FROM foo
 				WHERE created_at >= ${sql.asBool(true)}
@@ -74,7 +74,7 @@ describe("sql", () => {
 			values: [true],
 		});
 		expectQuery(
-			finalizeQuery(sql`
+			sql.finalize(sql`
 				SELECT *
 				FROM foo
 				WHERE created_at >= ${sql.asTimestamp(
@@ -86,7 +86,7 @@ describe("sql", () => {
 			values: ["2022-01-01T20:47:18.789Z"],
 		});
 		expectQuery(
-			finalizeQuery(sql`
+			sql.finalize(sql`
 				SELECT *
 				FROM foo
 				WHERE created_at >= ${sql.asDate(new Date("2022-01-01T20:47:18.789Z"))}
@@ -98,7 +98,7 @@ describe("sql", () => {
 	});
 	it("should allow unescaping parameters", async () => {
 		expectQuery(
-			finalizeQuery(sql`
+			sql.finalize(sql`
 				SELECT *
 				FROM foo
 				WHERE created_at >= ${sql.asUnescaped("true")}
@@ -108,7 +108,7 @@ describe("sql", () => {
 			values: [],
 		});
 		expectQuery(
-			finalizeQuery(sql`
+			sql.finalize(sql`
 				SELECT *
 				FROM foo
 				WHERE created_at >= ${sql.asUnescaped("'testing'")}
@@ -118,7 +118,7 @@ describe("sql", () => {
 			values: [],
 		});
 		expectQuery(
-			finalizeQuery(sql`
+			sql.finalize(sql`
 				SELECT *
 				FROM foo
 				WHERE created_at >= ${sql.asUnescaped(
