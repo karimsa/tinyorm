@@ -20,6 +20,17 @@ const config: DocsThemeConfig = {
 			titleTemplate: "%s - TinyORM",
 		};
 	},
+	footer: {
+		text: (
+			<span>
+				MIT {new Date().getFullYear()} &copy;{" "}
+				<a href="https://alibhai.co" target="_blank" rel="noreferrer">
+					Karim Alibhai
+				</a>
+				.
+			</span>
+		),
+	},
 };
 
 export default config;
