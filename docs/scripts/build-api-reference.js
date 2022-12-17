@@ -101,7 +101,7 @@ function getNodeSources(node) {
 }
 
 function buildClassNode(headingLevel, node) {
-	const children =
+	const children = (
 		node.children?.flatMap((childNode) => {
 			if (childNode.kindString === "Constructor") {
 				return [];
@@ -113,7 +113,12 @@ function buildClassNode(headingLevel, node) {
 			}
 
 			return flattenNode(childNode);
-		}) ?? [];
+		}) ?? []
+	).sort((left, right) => {
+		const rightLineNo = right.sources?.[0]?.line ?? 0;
+		const leftLineNo = left.sources?.[0]?.line ?? 0;
+		return leftLineNo - rightLineNo;
+	});
 	const properties = children.filter(
 		(childNode) => childNode.kindString === "Property",
 	);
