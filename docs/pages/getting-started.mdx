@@ -20,3 +20,29 @@ yarn add --exact @karimsa/tinyorm pg@8 zod@3
 ```
   </Tab>
 </Tabs>
+
+## Setting up your tsconfig / builds
+
+There's a few modifications that need to be made to your project's `tsconfig.json` to use TinyORM:
+
+### `target`
+
+You must target ES2015 or higher to use TinyORM.
+
+**Recommendation:** Set your target to `esnext`, and use a modern transpiler like `babel` or `esbuild`.
+
+**Workaround:** Set your target to something above `ES2015`.
+
+TODO: This is not going to work well for people using `tsc` to do their module transpilation.
+
+### `strictPropertyInitialization`
+
+To write entity classes, you will need to set `strictPropertyInitialization` to false in your `tsconfig.json`.
+This stops `tsc` from complaining about class properties that are compile-time only.
+
+### `experimentalDecorators`
+
+To use TinyORM's decorators, you must set `experimentalDecorators` to true.
+
+If you are using babel, you have to enable legacy decorators using the plugin `@babel/plugin-syntax-decorators` and
+setting the `legacy` option to true.
