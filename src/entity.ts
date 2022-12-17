@@ -109,20 +109,58 @@ export interface ColumnStoredOptions {
 	previousName?: string;
 }
 
+/**
+ * Passed as options to {@link Column} decorator.
+ */
 export interface ColumnOptions {
+	/**
+	 * The datatype of the column in postgres.
+	 *
+	 * ```ts
+	 * class User {
+	 * 	@Column({ type: "text" })
+	 * 	readonly id: string;
+	 * }
+	 * ```
+	 */
 	type: PostgresColumnType | `${PostgresColumnType}[]`;
+	/**
+	 * Specifies whether the column can hold null values (defaults to false).
+	 *
+	 * ```ts
+	 * class User {
+	 * 	@Column({ type: "text", nullable: true })
+	 * 	readonly id: string | null;
+	 * }
+	 * ```
+	 */
 	nullable?: boolean;
+	/**
+	 * Contains a query that defines the default value of the column.
+	 *
+	 * ```ts
+	 * class User {
+	 *  @Column({ type: "text", defaultValue: sql`uuid_generate_v4()` })
+	 *  readonly id: string;
+	 * }
+	 * ```
+	 */
 	defaultValue?: PreparedQuery;
+	/**
+	 * Useful for when you want to rename a column that already exists (used by the migration generator to define table renames).
+	 *
+	 * ```ts
+	 * class User {
+	 *  @Column({ type: "text", previousName: "id" })
+	 *  readonly uuid: string;
+	 * }
+	 * ```
+	 */
 	previousName?: string;
 }
 
 /**
- * Decorator that defines a column on an entity.
- *
- * @param options.type the datatype of the column in postgres
- * @param options.nullable whether the column can hold null values (defaults to false)
- * @param options.defaultValue query that defines the default value of the column
- * @param options.previousName useful for when you want to rename a column that already exists (used by the migration generator to define table renames)
+ * Decorator that defines a column on an entity, as described by {@link ColumnOptions}.
  */
 export function Column(options: ColumnOptions) {
 	return function (target: object, propertyKey: string) {

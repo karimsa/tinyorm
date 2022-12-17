@@ -440,8 +440,10 @@ export function createSingleWhereBuilder<Shape extends object>(
 
 /**
  * Creates a query builder that assembles the `where` part of a query, assuming
- * that {knownEntities} are the only entities that can be referenced in the
+ * that `knownEntities` are the only entities that can be referenced in the
  * query.
+ *
+ * @param knownEntities a map of entity names/aliases to their respective entity
  */
 export function createJoinWhereBuilder<Shapes extends Record<string, object>>(
 	knownEntities:

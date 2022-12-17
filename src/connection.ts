@@ -478,8 +478,7 @@ export class ConnectionPool {
 /**
  * Creates a new connection pool, with exclusive access to an underlying postgres client pool.
  *
- * @param options
- * @returns
+ * @param options takes the same options as [pg.Pool](https://node-postgres.com/features/pooling)
  */
 export function createConnectionPool(
 	options: PostgresPoolOptions,

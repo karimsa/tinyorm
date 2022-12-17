@@ -275,32 +275,6 @@ export function castValue(
 	return `${name}${typeCast}${arraySuffix}`;
 }
 
-const typeCastHelpers = {
-	// Casts
-	asUnescaped: (value: string): UnescapedVariable => ({
-		type: kUnescapedVariable,
-		value,
-	}),
-	asText: (value: string | number | boolean) => getQueryVariable(value, "text"),
-	asBool: (value: unknown) => getQueryVariable(!!value, "boolean"),
-	asDate: (date: Date): QueryVariable => getQueryVariable(date, "date"),
-	asTimestamp: (date: Date): QueryVariable =>
-		getQueryVariable(date, "timestamp"),
-	asJSONB: (value: string) => getQueryVariable(value, "jsonb"),
-};
-
-const getEntityRef = (
-	entity: Pick<EntityFromShape<unknown>, "schema" | "tableName">,
-	alias?: string,
-) => {
-	if (alias) {
-		return sql.asUnescaped(
-			`"${entity.schema}"."${entity.tableName}" AS "${alias}"`,
-		);
-	}
-	return sql.asUnescaped(`"${entity.schema}"."${entity.tableName}"`);
-};
-
 const kJsonRef = Symbol("jsonRef");
 const kJsonEntityRef = Symbol("jsonEntityRef");
 
@@ -361,6 +335,291 @@ export function isJsonRef(value: any): value is JsonRef<unknown> {
 	);
 }
 
+/**
+ * @internal
+ */
+export class SqlHelpers {
+	//
+	// Casting helpers
+	//
+
+	/**
+	 * Marks a value as unescaped. Only use this with values that are trusted, because
+	 * it wil not be marked as a query paramter.
+	 *
+	 * Please note that unescaped values are treated as raw SQL, and not as a value. This
+	 * means they _must_ be a string, and will not be stringified for you.
+	 *
+	 * ```ts
+	 * enum MyEnum {
+	 * 	Foo = 'foo',
+	 * 	Bar = 'bar',
+	 * }
+	 *
+	 * // Enum values are usually safe to unescape, since they are not user input
+	 * sql`SELECT * FROM user where role = '${sql.asUnescaped(MyEnum.Foo)}'`
+	 * ```
+	 *
+	 * @param value
+	 * @returns
+	 */
+	asUnescaped(value: string): UnescapedVariable {
+		return {
+			type: kUnescapedVariable,
+			value,
+		};
+	}
+
+	/**
+	 * Marks a query parameter as a 'TEXT' type in postgres. This generates something like `$1::text`.
+	 *
+	 * ```ts
+	 * // Generates: SELECT * FROM user where name = $1::text
+	 * sql`SELECT * FROM user where name = ${sql.asText("foo")}`
+	 * ```
+	 *
+	 * @param value value that should be treated as a string
+	 */
+	asText(value: string | number | boolean) {
+		return getQueryVariable(value, "text");
+	}
+
+	/**
+	 * Marks a query parameter as a 'BOOLEAN' type in postgres. This generates something like `$1::boolean`.
+	 *
+	 * ```ts
+	 * // Generates: SELECT * FROM user where active = $1::boolean
+	 * sql`SELECT * FROM user where active = ${sql.asBool(true)}`
+	 * ```
+	 *
+	 * @param value value that should be treated as a boolean
+	 */
+	asBool(value: unknown) {
+		return getQueryVariable(!!value, "boolean");
+	}
+
+	/**
+	 * Marks a query parameter as a 'date'. This generates something like `$1::date`, where the query parameter
+	 * passed to postgres is an ISO string (Postgres should forcefully truncate this to a date).
+	 *
+	 * Please handle the timezone yourself.
+	 *
+	 * ```ts
+	 * // Generates: SELECT * FROM user where created_at = $1::date
+	 * sql`SELECT * FROM user where created_at = ${sql.asDate(new Date())}`
+	 * ```
+	 *
+	 * @param date a valid JS date object
+	 */
+	asDate(date: Date): QueryVariable {
+		return getQueryVariable(date, "date");
+	}
+
+	/**
+	 * Marks a query parameter as a 'timestamp with time zone'. This generates something like `$1::timestamp with time zone`.
+	 *
+	 * ```ts
+	 * // Generates: SELECT * FROM user where created_at = $1::timestamp with time zone
+	 * sql`SELECT * FROM user where created_at = ${sql.asTimestamp(new Date())}`
+	 * ```
+	 *
+	 * @param date
+	 */
+	asTimestamp(date: Date): QueryVariable {
+		return getQueryVariable(date, "timestamp");
+	}
+
+	/**
+	 * Marks a query parameter as a 'jsonb'. This generates something like `$1::jsonb`.
+	 * If an object is passed, it will be stringified using `JSON.stringify`. If you want to
+	 * handle serialization yourself, you can also pass a string.
+	 *
+	 * ```ts
+	 * // Generates: SELECT * FROM user where data = $1::jsonb
+	 * sql`SELECT * FROM user where data = ${sql.asJSONB({ foo: "bar" )}`
+	 * ```
+	 *
+	 * @param value a JSON object or string
+	 */
+	asJSONB(value: string | object) {
+		if (typeof value === "object") {
+			return getQueryVariable(JSON.stringify(value), "jsonb");
+		}
+		return getQueryVariable(value, "jsonb");
+	}
+
+	/**
+	 * Builds an entity reference for aliased entities. This is useful for joins.
+	 *
+	 * ```ts
+	 * class User extends Entity({ schema: 'app', tableName: 'user' }) {}
+	 * class Post extends Entity({ schema: 'app', tableName: 'post' }) {}
+	 *
+	 * // Generates: SELECT * FROM "app"."user" AS "u" INNER JOIN "app"."post" AS "p" ON u.id = p.user_id
+	 * sql`SELECT * FROM ${sql.getEntityRef(User, "u")} INNER JOIN ${sql.getEntityRef(Post, "p")} ON u.id = p.user_id`
+	 * ```
+	 *
+	 * Note: If you want to refer to an entity without an alias, the entity can be passed directly in your query.
+	 *
+	 * ```ts
+	 * // Generates: SELECT * FROM "app"."user"
+	 * sql`SELECT * FROM ${User}`
+	 * ```
+	 *
+	 * @param entity the tinyorm entity to reference
+	 */
+	getEntityRef(
+		entity: Pick<EntityFromShape<unknown>, "schema" | "tableName">,
+		alias?: string,
+	) {
+		if (alias) {
+			return sql.asUnescaped(
+				`"${entity.schema}"."${entity.tableName}" AS "${alias}"`,
+			);
+		}
+		return sql.asUnescaped(`"${entity.schema}"."${entity.tableName}"`);
+	}
+
+	/**
+	 * Helper that allows you to create JSON path references in a type-safe way.
+	 * Example: `sql.json(User).json_blob.foo.bar`
+	 *
+	 * @param entity the tinyorm entity to reference
+	 */
+	json<Shape>(_: EntityFromShape<Shape>) {
+		return createJsonRefProxy({
+			column: "",
+			jsonPath: [],
+		}) as unknown as JsonRefBuilder<Shape, Shape>;
+	}
+
+	/**
+	 * Joins a set of PreparedQueries together into a single PreparedQuery.
+	 * @param queries
+	 * @returns joined query
+	 */
+	join(queries: PreparedQuery[]): PreparedQuery {
+		if (queries.length === 0) {
+			throw new Error("Cannot join zero queries");
+		}
+
+		return sql(["", ...queries.map(() => "")], ...queries);
+	}
+
+	/**
+	 * Creates a PreparedQuery that completely escapes query parameters. Only use this
+	 * with trusted input, or have fun with your SQL injection.
+	 *
+	 * Example:
+	 *
+	 * ```ts
+	 * // This will run: SELECT * FROM users;
+	 * sql.unescaped(`SELECT * FROM ${'users'}`)
+	 *
+	 * // This will run: SELECT * FROM $1::text; with params: ['users']
+	 * sql(`SELECT * FROM ${'users'}`)
+	 * ```
+	 *
+	 * @param text
+	 * @returns
+	 */
+	unescaped(text: string): PreparedQuery {
+		return {
+			text: [text],
+			params: [],
+		};
+	}
+
+	/**
+	 * Adds given prefix to the query.
+	 */
+	prefixQuery(prefix: string, query: PreparedQuery) {
+		const text = [...query.text];
+		text[0] = `${prefix}${query.text[0]}`;
+
+		return {
+			text,
+			params: [...query.params],
+		};
+	}
+
+	/**
+	 * Adds given suffix to the query.
+	 */
+	suffixQuery(query: PreparedQuery, suffix: string) {
+		const text = [...query.text];
+		text[query.text.length - 1] = `${
+			query.text[query.text.length - 1]
+		}${suffix}`;
+
+		return {
+			text,
+			params: [...query.params],
+		};
+	}
+
+	/**
+	 * Wraps a query with a prefix + suffix.
+	 */
+	wrapQuery(prefix: string, query: PreparedQuery, suffix: string) {
+		return this.suffixQuery(this.prefixQuery(prefix, query), suffix);
+	}
+
+	/**
+	 * Wraps a query with a prefix + suffix.
+	 */
+	brackets(query: PreparedQuery) {
+		return this.wrapQuery("(", query, ")");
+	}
+
+	/**
+	 * Finalizes a PreparedQuery into a FinalizedQuery.
+	 *
+	 * PreparedQueries are raw queries that cannot be executed against postgres yet,
+	 * because not all the parameters are known yet.
+	 *
+	 * FinalizedQueries are queries that can be executed against postgres, because
+	 * all the parameters are known, so placeholders can be generated correctly.
+	 *
+	 * A FinalizedQuery cannot be modified, but PreparedQueries can be modified.
+	 */
+	finalize(query: PreparedQuery): FinalizedQuery {
+		const finalizedQuery: FinalizedQuery = {
+			text: query.text[0] ?? "",
+			values: [],
+		};
+		for (const [index, queryVar] of query.params.entries()) {
+			if (isUnescapedVariable(queryVar)) {
+				finalizedQuery.text += `${queryVar.value}${query.text[index + 1]}`;
+			} else {
+				finalizedQuery.text += `${castValue(
+					`$${finalizedQuery.values.length + 1}`,
+					queryVar,
+				)} ${query.text[index + 1]}`;
+				finalizedQuery.values.push(queryVar.value);
+			}
+		}
+		return finalizedQuery;
+	}
+}
+
+/**
+ * Helper that allows you to write SQL prepared queries as template strings. All template string
+ * parameters are automatically escaped as SQL parameters. This function also contains a set of
+ * useful utilities that allow you to perform type-casting and other operations.
+ *
+ * ```ts
+ * // 'name' will be treated as user input and escaped
+ * // This generates: `SELECT * FROM user WHERE name = $1::text`
+ * sql`SELECT * FROM user WHERE name = ${name}`
+ * ```
+ *
+ * @returns a PreparedQuery object
+ *
+ * @docs
+ *
+ * {@embedDocs SqlHelpers}
+ */
 export const sql = Object.assign(
 	(
 		templateStrings: ReadonlyArray<string>,
@@ -415,130 +674,7 @@ export const sql = Object.assign(
 			text: preparedQuery.text,
 		};
 	},
-	{
-		...typeCastHelpers,
-		getEntityRef,
-
-		/**
-		 * Helper that allows you to create JSON path references in a type-safe way.
-		 * Example: `sql.json(User).json_blob.foo.bar`
-		 *
-		 * @param entity the tinyorm entity to reference
-		 */
-		json<Shape>(_: EntityFromShape<Shape>) {
-			return createJsonRefProxy({
-				column: "",
-				jsonPath: [],
-			}) as unknown as JsonRefBuilder<Shape, Shape>;
-		},
-
-		/**
-		 * Joins a set of PreparedQueries together into a single PreparedQuery.
-		 * @param queries
-		 * @returns joined query
-		 */
-		join(queries: PreparedQuery[]): PreparedQuery {
-			if (queries.length === 0) {
-				throw new Error("Cannot join zero queries");
-			}
-
-			return sql(["", ...queries.map(() => "")], ...queries);
-		},
-
-		/**
-		 * Creates a PreparedQuery that completely escapes query parameters. Only use this
-		 * with trusted input, or have fun with your SQL injection.
-		 *
-		 * Example:
-		 *
-		 * ```ts
-		 * // This will run: SELECT * FROM users;
-		 * sql.unescaped(`SELECT * FROM ${'users'}`)
-		 *
-		 * // This will run: SELECT * FROM $1::text; with params: ['users']
-		 * sql(`SELECT * FROM ${'users'}`)
-		 * ```
-		 *
-		 * @param text
-		 * @returns
-		 */
-		unescaped: (text: string): PreparedQuery => ({
-			text: [text],
-			params: [],
-		}),
-
-		/**
-		 * Adds given prefix to the query.
-		 */
-		prefixQuery(prefix: string, query: PreparedQuery) {
-			const text = [...query.text];
-			text[0] = `${prefix}${query.text[0]}`;
-
-			return {
-				text,
-				params: [...query.params],
-			};
-		},
-
-		/**
-		 * Adds given suffix to the query.
-		 */
-		suffixQuery(query: PreparedQuery, suffix: string) {
-			const text = [...query.text];
-			text[query.text.length - 1] = `${
-				query.text[query.text.length - 1]
-			}${suffix}`;
-
-			return {
-				text,
-				params: [...query.params],
-			};
-		},
-
-		/**
-		 * Wraps a query with a prefix + suffix.
-		 */
-		wrapQuery(prefix: string, query: PreparedQuery, suffix: string) {
-			return this.suffixQuery(this.prefixQuery(prefix, query), suffix);
-		},
-
-		/**
-		 * Wraps a query with a prefix + suffix.
-		 */
-		brackets(query: PreparedQuery) {
-			return this.wrapQuery("(", query, ")");
-		},
-
-		/**
-		 * Finalizes a PreparedQuery into a FinalizedQuery.
-		 *
-		 * PreparedQueries are raw queries that cannot be executed against postgres yet,
-		 * because not all the parameters are known yet.
-		 *
-		 * FinalizedQueries are queries that can be executed against postgres, because
-		 * all the parameters are known, so placeholders can be generated correctly.
-		 *
-		 * A FinalizedQuery cannot be modified, but PreparedQueries can be modified.
-		 */
-		finalize(query: PreparedQuery): FinalizedQuery {
-			const finalizedQuery: FinalizedQuery = {
-				text: query.text[0] ?? "",
-				values: [],
-			};
-			for (const [index, queryVar] of query.params.entries()) {
-				if (isUnescapedVariable(queryVar)) {
-					finalizedQuery.text += `${queryVar.value}${query.text[index + 1]}`;
-				} else {
-					finalizedQuery.text += `${castValue(
-						`$${finalizedQuery.values.length + 1}`,
-						queryVar,
-					)} ${query.text[index + 1]}`;
-					finalizedQuery.values.push(queryVar.value);
-				}
-			}
-			return finalizedQuery;
-		},
-	},
+	new SqlHelpers(),
 );
 
 export function isFinalizedQuery(query: unknown): query is FinalizedQuery {
