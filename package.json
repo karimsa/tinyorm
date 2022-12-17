@@ -4,6 +4,9 @@
   "description": "Minimal type-safe ORM for Postgres.",
   "types": "./dist",
   "main": "./dist/index.js",
+  "engines": {
+    "node": "14 || 16 || 18"
+  },
   "scripts": {
     "test": "jest",
     "build": "tsc && node esbuild",
