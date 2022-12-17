@@ -13,6 +13,7 @@ export {
 	MigrationGenerator,
 	MigrationReason,
 	runMigrations,
+	SuggestedMigration,
 } from "./migrations";
 export {
 	FinalizedQuery,

@@ -21,13 +21,25 @@ import {
 	WhereQueryBuilder,
 } from "./where-builder";
 
+/**
+ * This error is thrown when a query fails.
+ */
 export class QueryError extends Error {
-	constructor(
-		message: string,
-		private readonly query: FinalizedQuery,
-		private readonly internalError: unknown,
-	) {
+	/**
+	 * The query that failed.
+	 */
+	readonly query: FinalizedQuery;
+
+	/**
+	 * The error that was caught by TinyORM when the query failed.
+	 */
+	readonly internalError: unknown;
+
+	constructor(message: string, query: FinalizedQuery, internalError: unknown) {
 		super(message);
+
+		this.query = query;
+		this.internalError = internalError;
 	}
 }
 

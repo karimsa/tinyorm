@@ -30,7 +30,12 @@ const mainExport = fs.readFileSync(
 );
 
 function getPageFileName(pageName) {
-	return pageName.toLowerCase().replace(/[^a-z]+/g, "-");
+	return pageName
+		.replace(
+			/[A-Z]/g,
+			(match, offset) => `${offset === 0 ? "" : "-"}${match.toLowerCase()}`,
+		)
+		.replace(/[^\w]+/g, "-");
 }
 
 function buildTextBlock(headingLevel, content) {

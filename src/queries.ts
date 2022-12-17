@@ -1,8 +1,14 @@
 import * as util from "util";
 import { EntityFromShape, isEntity } from "./entity";
 
+/**
+ * Defines non-array and non-null JS types that are allowed to be passed as query parameters.
+ */
 export type PostgresSimpleValueType = string | number | boolean | Date | object;
 
+/**
+ * Defines JS types that are allowed to be passed as query parameters.
+ */
 export type PostgresValueType =
 	| PostgresSimpleValueType
 	| (PostgresSimpleValueType | null)[]
@@ -110,6 +116,11 @@ function isUnescapedVariable(variable: any): variable is UnescapedVariable {
 	);
 }
 
+/**
+ * This error is thrown when a query parameter is passed that tinyorm doesn't know how to handle.
+ *
+ * If you hit this error, you can always use a typecast helper to explicitly tell tinyorm what type the value is.
+ */
 export class UnknownQueryParameterTypeError extends Error {
 	constructor(message: string, private readonly value: unknown) {
 		super(message);
