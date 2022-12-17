@@ -3,7 +3,17 @@
 import * as fs from "fs";
 import * as path from "path";
 
-const docNodes = require("../docs/tmp/api-reference.json").children;
+const docNodes = require("../docs/tmp/api-reference.json").children.flatMap(
+	(childNode) => {
+		if (childNode.signatures) {
+			return childNode.signatures.map((signature) => ({
+				...signature,
+				...childNode,
+			}));
+		}
+		return [childNode];
+	},
+);
 const mainExport = fs.readFileSync(
 	path.resolve(__dirname, "..", "src", "index.ts"),
 	"utf8",
@@ -41,11 +51,16 @@ function buildComment(node) {
 	return buildTextBlock(node.comment);
 }
 
-function buildChildNode(node) {
+function buildFunctionNode(headingLevel, node) {
 	const params = node.parameters?.filter((param) => param.comment);
+	if (params?.find((p) => p.name === "knownEntities")) {
+		console.dir(node.parameters);
+	}
 
 	return [
-		`### ${node.name} <TypeBadge>${node.kindString}</TypeBadge>`,
+		`${"#".repeat(headingLevel)} ${node.name} <TypeBadge>${
+			node.kindString
+		}</TypeBadge>`,
 		``,
 		getNodeSources(node),
 		``,
@@ -60,7 +75,7 @@ function buildChildNode(node) {
 			].join("");
 		}) ?? []),
 		``,
-	].join("\n");
+	];
 }
 
 function getNodeSources(node) {
@@ -71,7 +86,7 @@ function getNodeSources(node) {
 	});
 }
 
-function buildPage(node) {
+function buildClassNode(headingLevel, node) {
 	const children =
 		node.children?.flatMap((childNode) => {
 			if (childNode.kindString === "Constructor") {
@@ -99,9 +114,10 @@ function buildPage(node) {
 	);
 
 	return [
-		`import { TypeBadge } from '../../components/TypeBadge';`,
 		``,
-		`# ${node.name} <TypeBadge>${node.kindString}</TypeBadge>`,
+		`${"#".repeat(headingLevel)} ${node.name} <TypeBadge>${
+			node.kindString
+		}</TypeBadge>`,
 		``,
 		getNodeSources(node),
 		``,
@@ -109,7 +125,7 @@ function buildPage(node) {
 		``,
 		...(properties.length > 0
 			? [
-					`## Properties`,
+					`${"#".repeat(headingLevel + 1)} Properties`,
 					``,
 					...properties.map(
 						(childNode) =>
@@ -122,7 +138,7 @@ function buildPage(node) {
 			: []),
 		...(methods.length > 0
 			? [
-					`## Methods`,
+					`${"#".repeat(headingLevel + 1)} Methods`,
 					``,
 					...methods.map(
 						(childNode) =>
@@ -133,9 +149,35 @@ function buildPage(node) {
 					``,
 			  ]
 			: []),
-		...properties.map((childNode) => buildChildNode(childNode)),
-		...methods.map((childNode) => buildChildNode(childNode)),
+		...properties.flatMap((childNode) =>
+			buildFunctionNode(headingLevel + 2, childNode),
+		),
+		...methods.flatMap((childNode) =>
+			buildFunctionNode(headingLevel + 2, childNode),
+		),
 		``,
+	];
+}
+
+function buildNode(headingLevel, node) {
+	switch (node.kindString) {
+		case "Class":
+		case "Interface":
+		case "Type alias":
+			return buildClassNode(headingLevel, node);
+		case "Function":
+			return buildFunctionNode(headingLevel, node);
+
+		default:
+			throw new Error(`Unrecognized node type: ${node.kindString}`);
+	}
+}
+
+function buildPage(node) {
+	return [
+		`import { TypeBadge } from '../../components/TypeBadge';`,
+		``,
+		...buildNode(1, node),
 	].join("\n");
 }
 
@@ -147,7 +189,6 @@ for (const node of docNodes) {
 	}
 
 	const fileName = getPageFileName(node.name);
-	console.dir(Object.keys(node));
 
 	meta[fileName] = node.name;
 	fs.writeFileSync(
