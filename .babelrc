@@ -3,5 +3,8 @@
         ["@babel/plugin-syntax-decorators", {
             "legacy": true
         }]
+    ],
+    "presets": [
+        "@babel/preset-typescript"
     ]
 }
