@@ -2,6 +2,7 @@
     "creating-an-entity": "Creating an Entity",
     "creating-an-index": "Creating an Index",
     "referencing-json-fields": "Referencing JSON Fields",
+    "custom-sql-queries": "Custom SQL Queries",
     "simple-query-builder": "Simple Query Builder",
     "join-query-builder": "Join Query Builder",
     "generating-migrations": "Generating Migrations"

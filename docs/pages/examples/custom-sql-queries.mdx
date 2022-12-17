@@ -1,0 +1,15 @@
+# Custom SQL Queries
+
+You can use [sql](/reference/sql) to build custom SQL queries, and [Connection.query](/reference/connection#query-method) to execute them.
+
+```ts
+import { createConnectionPool, sql } from '@karimsa/tinyorm'
+
+const pool = await createConnectionPool()
+
+const results = await pool.withConnection(async connection => {
+    return connection.query(sql`
+        SELECT * FROM users WHERE id = ${1}
+    `)
+})
+```
