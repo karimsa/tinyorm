@@ -1,4 +1,5 @@
 import snakeCase from "lodash.snakecase";
+import { EventEmitter } from "stream";
 import { EntityFromShape } from "./entity";
 import { PostgresSimpleValueType } from "./queries";
 
@@ -36,3 +37,26 @@ export type EntityJsonKeys<Entity> = Entity extends EntityFromShape<infer Shape>
 		? JsonKeys<Shape>
 		: never
 	: never;
+
+export interface TypeSafeEventEmitter<
+	EventHandlers extends Record<string, object>,
+> {
+	on<Event extends keyof EventHandlers>(
+		eventName: Event,
+		handler: (data: EventHandlers[Event]) => void,
+	): void;
+	off<Event extends keyof EventHandlers>(
+		eventName: Event,
+		handler: (data: EventHandlers[Event]) => void,
+	): void;
+	emit<Event extends keyof EventHandlers>(
+		eventName: Event,
+		data: EventHandlers[Event],
+	): void;
+}
+
+export function createEventEmitter<
+	EventHandlers extends Record<string, object>,
+>() {
+	return new EventEmitter() as unknown as TypeSafeEventEmitter<EventHandlers>;
+}

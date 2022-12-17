@@ -3,6 +3,7 @@ import {
 	PoolClient as PostgresClient,
 	PoolConfig as PostgresPoolOptions,
 } from "pg";
+import { EventEmitter } from "stream";
 import {
 	Column,
 	Entity,
@@ -18,6 +19,7 @@ import {
 	PostgresValueType,
 	sql,
 } from "./queries";
+import { createEventEmitter, TypeSafeEventEmitter } from "./utils";
 import {
 	createSingleWhereBuilder,
 	SingleWhereQueryBuilder,
@@ -57,6 +59,9 @@ function isSuggestedMigration(migration: any): migration is SuggestedMigration {
 	);
 }
 
+/**
+ * Thrown when a migration has already been run previously.
+ */
 export class DuplicateMigrationError extends Error {
 	constructor(readonly migrationName: string) {
 		super(
@@ -65,24 +70,50 @@ export class DuplicateMigrationError extends Error {
 	}
 }
 
-export class Connection {
-	constructor(readonly client: PostgresClient) {}
+type ConnectionEvents = {
+	queryStarted: { query: FinalizedQuery };
+	queryFailed: { query: FinalizedQuery; error: QueryError };
+	queryCompleted: { query: FinalizedQuery; duration: number };
+};
 
-	async query(query: FinalizedQuery) {
+/**
+ * Connections wrap a Postgres client and provide utils specifically for tinyorm.
+ */
+export class Connection
+	extends EventEmitter
+	implements TypeSafeEventEmitter<ConnectionEvents>
+{
+	private readonly events = createEventEmitter<ConnectionEvents>();
+
+	constructor(readonly client: PostgresClient) {
+		super();
+	}
+
+	/**
+	 * Executes any FinalizedQuery and returns the resulting rows.
+	 * @param query any FinalizedQuery object
+	 * @returns set of resulting rows (not validated)
+	 */
+	async query(query: FinalizedQuery): Promise<unknown[]> {
 		if (!query.text) {
 			throw new Error(`Cannot run empty query`);
 		}
 
 		const startTime = Date.now();
+		this.emit("queryStarted", { query });
 
 		try {
 			debug("query", `Running query`, { query });
 			const { rows, rowCount } = await this.client.query(query);
+			const duration = Date.now() - startTime;
+
+			this.emit("queryCompleted", { query, duration });
 			debug("query", `Query completed`, {
 				query,
-				duration: Date.now() - startTime,
+				duration,
 				rowCount,
 			});
+
 			return rows;
 		} catch (err) {
 			debug("errors", `Query failed`, {
@@ -90,6 +121,7 @@ export class Connection {
 				err,
 				duration: Date.now() - startTime,
 			});
+			this.emit("queryFailed", { query, error: err });
 			throw new QueryError(
 				err instanceof Error ? err.message : "Query failed",
 				query,
@@ -98,28 +130,55 @@ export class Connection {
 		}
 	}
 
+	/**
+	 * Creates a new table for the given entity, and fails if a table already exists.
+	 * @param entity any tinyorm entity
+	 * @returns promise that resolves with void when the table has been created
+	 */
 	async createNewTable(entity: EntityFromShape<unknown>) {
-		return this.query(
+		await this.query(
 			finalizeQuery(ConnectionPool.getCreateTableQuery(entity, true)),
 		);
 	}
 
+	/**
+	 * Creates a new table for the given entity, if it doesn't already exist.
+	 * @param entity any tinyorm entity
+	 * @returns promise that resolves with void when the table has been created
+	 */
 	async createTable(entity: EntityFromShape<unknown>) {
 		return this.query(
 			finalizeQuery(ConnectionPool.getCreateTableQuery(entity, false)),
 		);
 	}
 
+	/**
+	 * Drops the table for the given entity, if it exists.
+	 * @param entity any tinyorm entity
+	 * @returns promise that resolves with void when the table has been dropped
+	 */
 	async dropTable(entity: EntityFromShape<unknown>) {
 		return this.query(finalizeQuery(sql`DROP TABLE IF EXISTS ${entity}`));
 	}
 
+	/**
+	 * Inserts a single row into the given entity's table.
+	 * @param entity any tinyorm entity
+	 * @param entry an instance of the entity
+	 * @returns the entity as returned by the database
+	 */
 	async insertOne<Shape>(entity: EntityFromShape<Shape>, entry: Shape) {
 		return this.query(
 			finalizeQuery(ConnectionPool.getInsertQuery(entity, entry)),
 		);
 	}
 
+	/**
+	 * Deletes multiple rows from the given entity's table that match the given whereBuilder.
+	 * @param entity any tinyorm entity
+	 * @param whereBuilder function that returns a WhereQueryBuilder to select specific entity rows
+	 * @returns
+	 */
 	async deleteFrom<Shape extends object>(
 		entity: EntityFromShape<Shape>,
 		whereBuilder: (where: SingleWhereQueryBuilder<Shape>) => WhereQueryBuilder,
@@ -129,10 +188,33 @@ export class Connection {
 		);
 	}
 
+	/**
+	 * Compares the current entity definition with the table in the database and returns a list of
+	 * queries that need to be run to bring the table in sync with the entity definition.
+	 * @param entity any tinyorm entity
+	 * @returns a set of suggested migrations recommended to bring the table in sync with the entity
+	 */
 	async getMigrationQueries(entity: EntityFromShape<unknown>) {
 		return new MigrationGenerator(this).getMigrationQueries(entity);
 	}
 
+	/**
+	 * Synchronizes an entity's database state with the entity's definition.
+	 * @param entity any tinyorm entity
+	 */
+	async synchronizeEntity(entity: EntityFromShape<unknown>) {
+		await this.initMigrations();
+
+		for (const query of await this.getMigrationQueries(entity)) {
+			for (const subQuery of query.queries) {
+				await this.query(subQuery);
+			}
+		}
+	}
+
+	/**
+	 * Synchronizes the migrations table so migrations can be run.
+	 */
 	async initMigrations() {
 		for (const { queries } of await this.getMigrationQueries(Migrations)) {
 			for (const query of queries) {
@@ -141,6 +223,10 @@ export class Connection {
 		}
 	}
 
+	/**
+	 * Destroys all record of previously run migrations. Exists to support testing, which is why it's
+	 * marked as unsafe.
+	 */
 	async unsafe_resetAllMigrations() {
 		try {
 			await this.deleteFrom(Migrations, (where) => where.raw(sql`true`));
@@ -151,6 +237,11 @@ export class Connection {
 		}
 	}
 
+	/**
+	 * Runs a migration, and fails if it has already been run.
+	 * @param name the name of the migration to run (recorded in the migrations table)
+	 * @param queries set of queries considered to be part of the migration
+	 */
 	async executeMigration(
 		name: string,
 		queries: (FinalizedQuery | SuggestedMigration)[],
@@ -186,9 +277,19 @@ export class Connection {
 	}
 }
 
+/**
+ * Wraps a pool of postgres clients and provides utility methods.
+ *
+ * To create a connection pool, use the utility method `createConnectionPool`.
+ */
 export class ConnectionPool {
 	constructor(readonly clientPool: PostgresPool) {}
 
+	/**
+	 * Borrows a client from the pool, and executes a function with exclusive access to that client.
+	 * @param fn
+	 * @returns
+	 */
 	async withClient<T>(fn: (client: PostgresClient) => Promise<T>): Promise<T> {
 		const client = await this.clientPool.connect();
 
@@ -199,6 +300,14 @@ export class ConnectionPool {
 		}
 	}
 
+	/**
+	 * Borrows a client from the pool, and executes a function with exclusive access to that client, under a transaction.
+	 * Transaction finalization (commit/rollback) is handled automatically based on whether the function throws an error.
+	 *
+	 * @param fn
+	 * @param isolationLevel the transaction isolation level to use
+	 * @returns the same value returned by your function
+	 */
 	async withTransaction<T>(
 		fn: (connection: Connection) => Promise<T>,
 		isolationLevel:
@@ -226,12 +335,24 @@ export class ConnectionPool {
 		}
 	}
 
+	/**
+	 * Compares the current entity definition with the table in the database and returns a list of
+	 * queries that need to be run to bring the table in sync with the entity definition.
+	 *
+	 * @param entity any tinyorm entity
+	 * @returns a set of suggested migrations recommended to bring the table in sync with the entity
+	 */
 	async getMigrationQueries(entity: EntityFromShape<unknown>) {
 		return this.withTransaction(async (connection) => {
 			return connection.getMigrationQueries(entity);
 		});
 	}
 
+	/**
+	 * Runs a migration, and fails if it has already been run.
+	 * @param name the name of the migration to run (recorded in the migrations table)
+	 * @param queries set of queries considered to be part of the migration
+	 */
 	async executeMigration(
 		name: string,
 		queries: (FinalizedQuery | SuggestedMigration)[],
@@ -241,8 +362,12 @@ export class ConnectionPool {
 		});
 	}
 
-	destroy() {
-		return this.clientPool.end();
+	/**
+	 * Closes the connection pool, and all of its clients.
+	 * @returns
+	 */
+	async destroy() {
+		await this.clientPool.end();
 	}
 
 	static getCreateTableQuery<Shape>(
@@ -314,6 +439,12 @@ export class ConnectionPool {
 	}
 }
 
+/**
+ * Creates a new connection pool, with exclusive access to an underlying postgres client pool.
+ *
+ * @param options
+ * @returns
+ */
 export function createConnectionPool(options: PostgresPoolOptions) {
 	return new ConnectionPool(new PostgresPool(options));
 }

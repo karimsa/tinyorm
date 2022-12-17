@@ -19,10 +19,16 @@ const Registry = process.env.NODE_ENV === "test" ? Map : WeakMap;
 
 const fieldRegistry = new Registry<object, Map<string, ColumnStoredOptions>>();
 
-export function Entity({
-	schema,
-	tableName,
-}: { schema?: string; tableName: string }) {
+/**
+ * Factory for creating base classes for entities.
+ *
+ * @param options.schema the database schema within which the entity will live (defaults to "public")
+ * @param options.tableName the name of the table in which the entity will live
+ * @returns a base class that you must extend to create your entity
+ */
+export function Entity(options: { schema?: string; tableName: string }) {
+	const { schema, tableName } = options;
+
 	if (schema) {
 		assertCase("schema", schema);
 	}
@@ -39,6 +45,11 @@ const indexRegistry = new Registry<
 	Map<string, { query: FinalizedQuery; previousName?: string }>
 >();
 
+/**
+ * Decorator for defining an index on an entity.
+ *
+ * @param entity any tinyorm entity
+ */
 export function Index<Shape>(
 	entity: EntityFromShape<Shape>,
 ): (
@@ -106,6 +117,14 @@ export interface ColumnOptions {
 	previousName?: string;
 }
 
+/**
+ * Decorator that defines a column on an entity.
+ *
+ * @param options.type the datatype of the column in postgres
+ * @param options.nullable whether the column can hold null values (defaults to false)
+ * @param options.defaultValue query that defines the default value of the column
+ * @param options.previousName useful for when you want to rename a column that already exists (used by the migration generator to define table renames)
+ */
 export function Column(options: ColumnOptions) {
 	return function (target: object, propertyKey: string) {
 		assertCase("property name", propertyKey);

@@ -419,6 +419,12 @@ export const sql = Object.assign(
 		...typeCastHelpers,
 		getEntityRef,
 
+		/**
+		 * Helper that allows you to create JSON path references in a type-safe way.
+		 * Example: `sql.json(User).json_blob.foo.bar`
+		 *
+		 * @param entity the tinyorm entity to reference
+		 */
 		json<Shape>(_: EntityFromShape<Shape>) {
 			return createJsonRefProxy({
 				column: "",
@@ -426,6 +432,11 @@ export const sql = Object.assign(
 			}) as unknown as JsonRefBuilder<Shape, Shape>;
 		},
 
+		/**
+		 * Joins a set of PreparedQueries together into a single PreparedQuery.
+		 * @param queries
+		 * @returns joined query
+		 */
 		join(queries: PreparedQuery[]): PreparedQuery {
 			if (queries.length === 0) {
 				throw new Error("Cannot join zero queries");
@@ -434,6 +445,23 @@ export const sql = Object.assign(
 			return sql(["", ...queries.map(() => "")], ...queries);
 		},
 
+		/**
+		 * Creates a PreparedQuery that completely escapes query parameters. Only use this
+		 * with trusted input, or have fun with your SQL injection.
+		 *
+		 * Example:
+		 *
+		 * ```ts
+		 * // This will run: SELECT * FROM users;
+		 * sql.unescaped(`SELECT * FROM ${'users'}`)
+		 *
+		 * // This will run: SELECT * FROM $1::text; with params: ['users']
+		 * sql(`SELECT * FROM ${'users'}`)
+		 * ```
+		 *
+		 * @param text
+		 * @returns
+		 */
 		unescaped: (text: string): PreparedQuery => ({
 			text: [text],
 			params: [],
@@ -453,7 +481,7 @@ export const sql = Object.assign(
 		},
 
 		/**
-		 * Adds given prefix to the query.
+		 * Adds given suffix to the query.
 		 */
 		suffixQuery(query: PreparedQuery, suffix: string) {
 			const text = [...query.text];

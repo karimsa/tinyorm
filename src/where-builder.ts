@@ -427,6 +427,10 @@ export type WhereQueryBuilder =
 	| AndWhereQueryBuilder<Function>
 	| OrWhereQueryBuilder<Function>;
 
+/**
+ * Creates a simplified query builder that assembles the `where` part of a query for
+ * a query that can only reference a single entity.
+ */
 export function createSingleWhereBuilder<Shape extends object>(
 	entity: EntityFromShape<Shape>,
 ) {
@@ -434,6 +438,11 @@ export function createSingleWhereBuilder<Shape extends object>(
 	return builder.getBuilder() as unknown as SingleWhereQueryBuilder<Shape>;
 }
 
+/**
+ * Creates a query builder that assembles the `where` part of a query, assuming
+ * that {knownEntities} are the only entities that can be referenced in the
+ * query.
+ */
 export function createJoinWhereBuilder<Shapes extends Record<string, object>>(
 	knownEntities:
 		| Map<

@@ -712,6 +712,9 @@ export class JoinedQueryBuilder<
 	}
 }
 
+/**
+ * Creates a new query builder that will select from a single entity.
+ */
 export function createSelectBuilder() {
 	return {
 		from<T extends object>(entity: EntityFromShape<T>): QueryBuilder<T, {}> {
@@ -720,6 +723,9 @@ export function createSelectBuilder() {
 	};
 }
 
+/**
+ * Creates a new query builder that will join multiple entities together.
+ */
 export function createJoinBuilder() {
 	return {
 		from<Alias extends string, T extends object>(
