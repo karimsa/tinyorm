@@ -1,8 +1,8 @@
 import { z } from "zod";
 import {
 	Column,
-	createJoinBuilder,
-	createSelectBuilder,
+	createJoinQueryBuilder,
+	createSimpleQueryBuilder,
 	Entity,
 	Index,
 	sql,
@@ -73,7 +73,7 @@ describe("QueryBuilder", () => {
 	describe("Select", () => {
 		it("should allow single entity queries", async () => {
 			expectQuery(
-				createSelectBuilder().from(User).select(["id", "name"]).getQuery(),
+				createSimpleQueryBuilder().from(User).select(["id", "name"]).getQuery(),
 			).toEqual({
 				text: `SELECT "id", "name" FROM "app"."user"`,
 				values: [],
@@ -81,7 +81,7 @@ describe("QueryBuilder", () => {
 		});
 		it("should allow inner joins", async () => {
 			expectQuery(
-				createJoinBuilder()
+				createJoinQueryBuilder()
 					.from(User, "user")
 					.select("user", ["id", "name"])
 					.getQuery(),
@@ -94,7 +94,7 @@ describe("QueryBuilder", () => {
 				values: [],
 			});
 			expectQuery(
-				createJoinBuilder()
+				createJoinQueryBuilder()
 					.from(User, "user")
 					.innerJoin(
 						Organization,
@@ -115,7 +115,7 @@ describe("QueryBuilder", () => {
 				values: [],
 			});
 			expectQuery(
-				createJoinBuilder()
+				createJoinQueryBuilder()
 					.from(User, "user")
 					.innerJoin(
 						Organization,
@@ -156,7 +156,7 @@ describe("QueryBuilder", () => {
 				organization: { name: string };
 			} | null>(
 				getResolvedType(
-					createJoinBuilder()
+					createJoinQueryBuilder()
 						.from(User, "user")
 						.innerJoin(
 							Organization,
@@ -174,7 +174,7 @@ describe("QueryBuilder", () => {
 				}[]
 			>(
 				getResolvedType(
-					createJoinBuilder()
+					createJoinQueryBuilder()
 						.from(User, "user")
 						.innerJoin(
 							Organization,
@@ -189,7 +189,7 @@ describe("QueryBuilder", () => {
 		it("should allow outer joins", async () => {
 			// Left join
 			expectQuery(
-				createJoinBuilder()
+				createJoinQueryBuilder()
 					.from(User, "user")
 					.leftJoin(
 						Organization,
@@ -214,7 +214,7 @@ describe("QueryBuilder", () => {
 				organization?: { name: string } | null;
 			} | null>(
 				getResolvedType(
-					createJoinBuilder()
+					createJoinQueryBuilder()
 						.from(User, "user")
 						.leftJoin(
 							Organization,
@@ -228,7 +228,7 @@ describe("QueryBuilder", () => {
 
 			// Right join
 			expectQuery(
-				createJoinBuilder()
+				createJoinQueryBuilder()
 					.from(User, "user")
 					.rightJoin(
 						Organization,
@@ -253,7 +253,7 @@ describe("QueryBuilder", () => {
 				organization: { name: string } | null;
 			} | null>(
 				getResolvedType(
-					createJoinBuilder()
+					createJoinQueryBuilder()
 						.from(User, "user")
 						.rightJoin(
 							Organization,
@@ -267,7 +267,7 @@ describe("QueryBuilder", () => {
 		});
 		it("should build results correctly", async () => {
 			expect(
-				createJoinBuilder()
+				createJoinQueryBuilder()
 					.from(User, "user")
 					.innerJoin(
 						Organization,
@@ -288,7 +288,7 @@ describe("QueryBuilder", () => {
 				},
 			});
 			expect(
-				createJoinBuilder()
+				createJoinQueryBuilder()
 					.from(User, "user")
 					.innerJoin(
 						Organization,
@@ -314,7 +314,7 @@ describe("QueryBuilder", () => {
 			]);
 		});
 		it("should allow custom select values", () => {
-			const qb = createJoinBuilder()
+			const qb = createJoinQueryBuilder()
 				.from(User, "user")
 				.innerJoin(UserPost, "user_post", sql`"user_post".user_id = "user".id`)
 				.select("user", ["id"])
@@ -344,7 +344,7 @@ describe("QueryBuilder", () => {
 			});
 		});
 		it("should allow grouping and ordering", () => {
-			const qb = createJoinBuilder()
+			const qb = createJoinQueryBuilder()
 				.from(User, "user")
 				.innerJoin(UserPost, "user_post", sql`"user_post".user_id = "user".id`)
 				.select("user", ["id"])
@@ -382,7 +382,7 @@ describe("QueryBuilder", () => {
 			});
 		});
 		it("should allow grouping and ordering on single entity", () => {
-			const qb = createSelectBuilder()
+			const qb = createSimpleQueryBuilder()
 				.from(User)
 				.select(["id"])
 				.selectRaw(sql`now()`, "current_time", z.date())

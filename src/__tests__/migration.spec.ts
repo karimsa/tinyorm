@@ -1,5 +1,5 @@
 import { describe, it } from "@jest/globals";
-import { Column, createJoinBuilder, Entity, Index, sql } from "../";
+import { Column, createJoinQueryBuilder, Entity, Index, sql } from "../";
 import { ConnectionPool, createConnectionPool } from "../connection";
 import { EntityFromShape } from "../entity";
 import { SuggestedMigration } from "../migrations";
@@ -34,7 +34,7 @@ describe("Migrations", () => {
 		});
 		await pool.withClient(async (client) => {
 			await expect(
-				createJoinBuilder()
+				createJoinQueryBuilder()
 					.from(MigrationTestUser, "test")
 					.selectAll("test")
 					.getOne(client),
@@ -79,7 +79,7 @@ describe("Migrations", () => {
 
 		await pool.withClient(async (client) => {
 			await expect(
-				createJoinBuilder()
+				createJoinQueryBuilder()
 					.from(MigrationTestUser, "test")
 					.selectAll("test")
 					.getOne(client),

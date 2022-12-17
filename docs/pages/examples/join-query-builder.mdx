@@ -1,7 +1,7 @@
 # Join Query Builder
 
 ```ts
-import { createJoinBuilder, sql } from '@karimsa/tinyorm';
+import { createJoinQueryBuilder, sql } from '@karimsa/tinyorm';
 
 // This will execute something like:
 //
@@ -11,7 +11,7 @@ import { createJoinBuilder, sql } from '@karimsa/tinyorm';
 //
 // And the return type will be `{ user: { id: string }; user_post: { id: string; title: string } }[]`.
 //
-const results = await createJoinBuilder()
+const results = await createJoinQueryBuilder()
   .from(User, 'user')
   .innerJoin(UserPost, 'user_post', sql`user.id = user_post.user_id`)
   .select('user', ['id'])

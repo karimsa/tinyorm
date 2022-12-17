@@ -22,7 +22,10 @@ export {
 	sql,
 	UnknownQueryParameterTypeError,
 } from "./queries";
-export { createJoinBuilder, createSelectBuilder } from "./query-builder";
+export {
+	createJoinQueryBuilder,
+	createSimpleQueryBuilder,
+} from "./query-builder";
 export type { JoinedQueryBuilder, QueryBuilder } from "./query-builder";
 export {
 	createJoinWhereBuilder,

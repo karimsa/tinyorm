@@ -8,7 +8,7 @@ import {
 	TableIndexCatalog,
 } from "./pgcatalog";
 import { FinalizedQuery, sql } from "./queries";
-import { createJoinBuilder } from "./query-builder";
+import { createJoinQueryBuilder } from "./query-builder";
 
 export type MigrationReason =
 	| "Missing Schema"
@@ -35,7 +35,7 @@ export class MigrationGenerator {
 	async getSchemaMigration(schemaName: string) {
 		const migrationQueries: SuggestedMigration[] = [];
 
-		const schemaInfo = await createJoinBuilder()
+		const schemaInfo = await createJoinQueryBuilder()
 			.from(SchemaCatalog, "schema_entry")
 			.selectAll("schema_entry")
 			.addWhere((where) =>
@@ -82,7 +82,7 @@ export class MigrationGenerator {
 		const migrationQueries: SuggestedMigration[] = [];
 		const indexSet = getEntityIndices(entity);
 
-		const existingIndexData = await createJoinBuilder()
+		const existingIndexData = await createJoinQueryBuilder()
 			.from(TableIndexCatalog, "index_entry")
 			.selectAll("index_entry")
 			.addWhere((where) =>
@@ -166,7 +166,7 @@ export class MigrationGenerator {
 		const migrations: SuggestedMigration[] = [];
 
 		const columnSet = getEntityFields(entity);
-		const existingColumnData = await createJoinBuilder()
+		const existingColumnData = await createJoinQueryBuilder()
 			.from(TableColumnCatalog, "col")
 			.selectAll("col")
 			.addWhere((where) =>
@@ -311,7 +311,7 @@ export class MigrationGenerator {
 		];
 
 		// Creation of table from scratch
-		const tableInfo = await createJoinBuilder()
+		const tableInfo = await createJoinQueryBuilder()
 			.from(TableCatalog, "table_entry")
 			.selectAll("table_entry")
 			.addWhere((where) =>
