@@ -10,7 +10,7 @@
   "scripts": {
     "test": "jest",
     "build": "tsc && node esbuild",
-    "build-api-ref": "typedoc && ./scripts/build-api-reference.mjs",
+    "build-api-ref": "typedoc && rm -rf ./docs/pages/reference && mkdir -p ./docs/pages/reference && ./scripts/build-api-reference.mjs",
     "dev-api-ref": "nodemon -w src -w scripts -w typedoc.json -e ts,js,mjs --exec \"yarn build-api-ref\"",
     "lint": "rome check src"
   },

@@ -19,7 +19,11 @@ function flattenNode(node) {
 	return [node];
 }
 
-const docNodes = flattenNode(require("../docs/tmp/api-reference.json"));
+const docNodes = flattenNode(require("../docs/tmp/api-reference.json")).sort(
+	(left, right) => {
+		return left.name.localeCompare(right.name);
+	},
+);
 const mainExport = fs.readFileSync(
 	path.resolve(__dirname, "..", "src", "index.ts"),
 	"utf8",
