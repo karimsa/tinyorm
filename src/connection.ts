@@ -69,6 +69,20 @@ type ConnectionEvents = {
 	queryStarted: { query: FinalizedQuery };
 	queryFailed: { query: FinalizedQuery; error: QueryError };
 	queryCompleted: { query: FinalizedQuery; duration: number };
+	migrationStarted: {
+		name: string;
+		queries: (FinalizedQuery | SuggestedMigration)[];
+	};
+	migrationFailed: {
+		name: string;
+		queries: (FinalizedQuery | SuggestedMigration)[];
+		error: unknown;
+	};
+	migrationCompleted: {
+		name: string;
+		queries: (FinalizedQuery | SuggestedMigration)[];
+		duration: number;
+	};
 };
 
 /**
@@ -264,15 +278,22 @@ export class Connection
 			throw new DuplicateMigrationError(name);
 		}
 
-		// Run all queries
-		for (const query of queries) {
-			if (isSuggestedMigration(query)) {
-				for (const subQuery of query.queries) {
-					await this.query(subQuery);
+		this.emit("migrationStarted", { name, queries });
+
+		try {
+			// Run all queries
+			for (const query of queries) {
+				if (isSuggestedMigration(query)) {
+					for (const subQuery of query.queries) {
+						await this.query(subQuery);
+					}
+				} else {
+					await this.query(query);
 				}
-			} else {
-				await this.query(query);
 			}
+			this.emit("migrationCompleted", { name, queries });
+		} catch (err) {
+			this.emit("migrationFailed", { name, queries, error: err });
 		}
 	}
 }
