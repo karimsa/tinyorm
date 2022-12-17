@@ -1,0 +1,7 @@
+{
+    "$schema": "https://typedoc.org/schema.json",
+    "entryPoints": ["./src/index.ts"],
+    "cleanOutputDir": true,
+    "skipErrorChecking": true,
+    "json": "./docs/tmp/api-reference.json"
+}

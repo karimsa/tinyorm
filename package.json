@@ -10,6 +10,8 @@
   "scripts": {
     "test": "jest",
     "build": "tsc && node esbuild",
+    "build-api-ref": "typedoc && ./scripts/build-api-reference.mjs",
+    "dev-api-ref": "nodemon -w src -w scripts -w typedoc.json -e ts,js,mjs --exec \"yarn build-api-ref\"",
     "lint": "rome check src"
   },
   "devDependencies": {
@@ -30,8 +32,10 @@
     "rome": "11.0.0",
     "sql-formatter": "12.0.3",
     "ts-node": "10.9.1",
+    "typedoc": "0.23.22",
     "typescript": "4.9.4",
-    "zod": "3.19.1"
+    "zod": "3.19.1",
+    "zx": "7.1.1"
   },
   "peerDependencies": {
     "pg": "^8",
