@@ -1,0 +1,33 @@
+# Generating Migrations
+
+```ts
+import { createConnectionPool } from '@karimsa/tinyorm';
+
+const pool = createConnectionPool({});
+
+class User extends Entity({ schema: 'app', tableName: 'users' }) {
+  @Column({ type: 'uuid' })
+  readonly id: string;
+
+  @Column({ type: 'text' })
+  readonly name: string;
+}
+
+const suggestions = await pool.getMigrationQueries(User);
+
+// This might generate something like the following for creating the table:
+// [{
+//      reason: 'New Table',
+//      queries: [
+//          'CREATE TABLE app.users (id uuid NOT NULL, name text NOT NULL);',
+//      ],
+// }]
+```
+
+Running the migration:
+
+```ts
+await pool.withTransaction(async (tx) => {
+  await tx.executeMigration('my migration', suggestions.map(s => s.queries).flat());
+});
+```

@@ -1,0 +1,8 @@
+{
+    "creating-an-entity": "Creating an Entity",
+    "creating-an-index": "Creating an Index",
+    "referencing-json-fields": "Referencing JSON Fields",
+    "single-query-builder": "Single Query Builder",
+    "join-query-builder": "Join Query Builder",
+    "generating-migrations": "Generating Migrations"
+}

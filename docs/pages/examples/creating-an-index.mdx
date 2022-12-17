@@ -1,0 +1,20 @@
+# Creating an Index
+
+```ts
+import { Entity, Column, Index, sql } from '@karimsa/tinyorm';
+
+// Simple single-column or multi-column index
+@Index(User)('idx_user_name', ['name'])
+// Can also use raw SQL
+@Index(User)('idx_user_data_foo', sql`((data->>'foo')) WHERE name = 'test'`)
+export class User extends Entity({ schema: 'app', tableName: 'users' }) {
+  @Column({ type: 'uuid' })
+  readonly id: string;
+
+  @Column({ type: 'text' })
+  readonly name: string;
+
+  @Column({ type: 'jsonb' })
+  readonly data: { foo: string };
+}
+```

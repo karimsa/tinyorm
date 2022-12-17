@@ -1,0 +1,24 @@
+# Single Query Builder
+
+```ts
+import { Entity, Column, createSelectBuilder } from '@karimsa/tinyorm';
+
+export class User extends Entity({ schema: 'app', tableName: 'users' }) {
+  @Column({ type: 'uuid' })
+  readonly id: string;
+
+  @Column({ type: 'text' })
+  readonly name: string;
+
+  @Column({ type: 'text' })
+  readonly foo: string;
+}
+
+// This will execute: SELECT id, name FROM app.users WHERE name = 'Karim';
+// And the return type will be `Pick<User, 'id' | 'name'> | null`.
+const user = await createSelectBuilder()
+  .from(User)
+  .select(['id', 'name'])
+  .addWhere(where => where('name').Equals('Karim'))
+  .getOne();
+```
