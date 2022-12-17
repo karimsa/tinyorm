@@ -454,7 +454,16 @@ export interface SqlHelpers {
 
 	/**
 	 * Helper that allows you to create JSON path references in a type-safe way.
-	 * Example: `sql.json(User).json_blob.foo.bar`
+	 *
+	 * ```ts
+	 * class User extends Entity({ tableName: 'user' }) {
+	 *   readonly id: string;
+	 *   readonly data: { foo: { bar: string }[] };
+	 * }
+	 *
+	 * // Generates: SELECT * FROM "user" WHERE "data"->'foo'->0->'bar' = 'baz'
+	 * sql`SELECT * FROM ${User} WHERE (${sql.json(User).data.foo[0].bar})::text = 'baz'`;
+	 * ```
 	 *
 	 * @param entity the tinyorm entity to reference
 	 */
