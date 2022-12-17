@@ -15,6 +15,11 @@ const config: DocsThemeConfig = {
 	project: {
 		link: "https://github.com/karimsa/tinyorm",
 	},
+	useNextSeoProps() {
+		return {
+			titleTemplate: "%s - TinyORM",
+		};
+	},
 };
 
 export default config;
