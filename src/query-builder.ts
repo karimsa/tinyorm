@@ -140,9 +140,11 @@ export class QueryBuilder<
 	readonly #orderByValues: PreparedQuery[] = [];
 	readonly #groupByValues: PreparedQuery[] = [];
 	readonly #whereQueries: PreparedQuery[] = [];
+	readonly #targetFromEntity: EntityFromShape<Shape>;
 
-	constructor(readonly targetFromEntity: EntityFromShape<Shape>) {
+	constructor(targetFromEntity: EntityFromShape<Shape>) {
 		super();
+		this.#targetFromEntity = targetFromEntity;
 	}
 
 	select<Keys extends string & keyof Shape>(
@@ -153,7 +155,7 @@ export class QueryBuilder<
 	}
 
 	selectAll() {
-		for (const key of getEntityFields(this.targetFromEntity).keys()) {
+		for (const key of getEntityFields(this.#targetFromEntity).keys()) {
 			if (!this.#selectedFields.includes(key)) {
 				this.#selectedFields.push(key);
 			}
@@ -187,7 +189,7 @@ export class QueryBuilder<
 	) {
 		this.#whereQueries.push(
 			whereBuilder(
-				createSingleWhereBuilder(this.targetFromEntity),
+				createSingleWhereBuilder(this.#targetFromEntity),
 			).getConditionQuery(),
 		);
 		return this;
@@ -301,7 +303,7 @@ export class QueryBuilder<
 							),
 					  )
 			}
-			FROM ${this.targetFromEntity}
+			FROM ${this.#targetFromEntity}
 			${
 				this.#whereQueries.length === 0
 					? sql``
@@ -355,13 +357,17 @@ export class JoinedQueryBuilder<
 	readonly #orderByValues: PreparedQuery[] = [];
 	readonly #groupByValues: PreparedQuery[] = [];
 	readonly #whereQueries: PreparedQuery[] = [];
+	readonly #targetFromEntity: EntityFromShape<unknown>;
+	readonly #targetEntityAlias: string;
 
 	constructor(
-		readonly targetFromEntity: EntityFromShape<unknown>,
-		readonly targetEntityAlias: string,
+		targetFromEntity: EntityFromShape<unknown>,
+		targetEntityAlias: string,
 	) {
 		super();
 		this.#includedEntites.set(targetEntityAlias, targetFromEntity);
+		this.#targetFromEntity = targetFromEntity;
+		this.#targetEntityAlias = targetEntityAlias;
 	}
 
 	innerJoin<Alias extends string, JoinedShape>(
@@ -655,7 +661,7 @@ export class JoinedQueryBuilder<
 					? sql.join(selectedComputedFields)
 					: sql``
 			}
-			FROM ${sql.getEntityRef(this.targetFromEntity, this.targetEntityAlias)}
+			FROM ${sql.getEntityRef(this.#targetFromEntity, this.#targetEntityAlias)}
 			${this.#joins.length > 0 ? sql.join(this.#joins) : sql``}
 			${this.#whereQueries.length > 0 ? sql.join(this.#whereQueries) : sql``}
 			${this.#getGroupBy()}

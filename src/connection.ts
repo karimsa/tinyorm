@@ -278,12 +278,25 @@ export class Connection
  * To create a connection pool, use the utility method `createConnectionPool`.
  */
 export class ConnectionPool {
-	constructor(readonly clientPool: PostgresPool) {}
+	/**
+	 * The underlying postgres client pool. Direct access to this is discouraged, but is provided.
+	 */
+	readonly clientPool: PostgresPool;
+
+	constructor(clientPool: PostgresPool) {
+		this.clientPool = clientPool;
+	}
 
 	/**
 	 * Borrows a client from the pool, and executes a function with exclusive access to that client.
-	 * @param fn
-	 * @returns
+	 * This exists only for lower level use cases, where you need to access the client directly. You
+	 * usually want 'withConnection'.
+	 *
+	 * ```ts
+	 * await pool.withClient(async (client) => {
+	 * 	  // do whatever you want with the underlying client
+	 * });
+	 * ```
 	 */
 	async withClient<T>(fn: (client: PostgresClient) => Promise<T>): Promise<T> {
 		const client = await this.clientPool.connect();
@@ -296,10 +309,38 @@ export class ConnectionPool {
 	}
 
 	/**
-	 * Borrows a client from the pool, and executes a function with exclusive access to that client, under a transaction.
+	 * Executes a function with exclusive access to a connection outside of a transaction.
+	 * This is meant to be used to execute queries, run migrations, etc.
+	 *
+	 * ```ts
+	 * await pool.withConnection(async (connection) => {
+	 * 	  // do whatever you want with the connection
+	 * });
+	 * ```
+	 */
+	async withConnection<T>(
+		fn: (connection: Connection) => Promise<T>,
+	): Promise<T> {
+		const client = await this.clientPool.connect();
+
+		try {
+			return await fn(new Connection(client));
+		} finally {
+			client.release();
+		}
+	}
+
+	/**
+	 * Similar to 'withConnection', but executes the function inside a transaction.
 	 * Transaction finalization (commit/rollback) is handled automatically based on whether the function throws an error.
 	 *
-	 * @param fn
+	 * ```ts
+	 * await pool.withTransaction(async (tx) => {
+	 * 	  // do whatever you want with the 'tx' as a connection
+	 * });
+	 * ```
+	 *
+	 * @param fn the function to execute inside the transaction
 	 * @param isolationLevel the transaction isolation level to use
 	 * @returns the same value returned by your function
 	 */
@@ -440,6 +481,9 @@ export class ConnectionPool {
  * @param options
  * @returns
  */
-export function createConnectionPool(options: PostgresPoolOptions) {
+export function createConnectionPool(
+	options: PostgresPoolOptions,
+): ConnectionPool {
+	// @ts-ignore
 	return new ConnectionPool(new PostgresPool(options));
 }
