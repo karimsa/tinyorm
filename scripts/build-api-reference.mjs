@@ -3,17 +3,23 @@
 import * as fs from "fs";
 import * as path from "path";
 
-const docNodes = require("../docs/tmp/api-reference.json").children.flatMap(
-	(childNode) => {
-		if (childNode.signatures) {
-			return childNode.signatures.map((signature) => ({
-				...signature,
-				...childNode,
-			}));
-		}
-		return [childNode];
-	},
-);
+function flattenNode(node) {
+	if (node.kindString === "Reference") {
+		return [];
+	}
+	if (node.kind === 1 || node.kindString === "Module") {
+		return node.children.flatMap((childNode) => flattenNode(childNode));
+	}
+	if (node.signatures) {
+		return node.signatures.map((signature) => ({
+			...signature,
+			...node,
+		}));
+	}
+	return [node];
+}
+
+const docNodes = flattenNode(require("../docs/tmp/api-reference.json"));
 const mainExport = fs.readFileSync(
 	path.resolve(__dirname, "..", "src", "index.ts"),
 	"utf8",
@@ -23,56 +29,60 @@ function getPageFileName(pageName) {
 	return pageName.toLowerCase().replace(/[^a-z]+/g, "-");
 }
 
-function buildTextBlock(content) {
+function buildTextBlock(headingLevel, content) {
 	if (!content) {
-		return "";
+		return [];
 	}
 	if (!Array.isArray(content.summary)) {
 		console.dir({ content }, { depth: null });
 		throw new Error(`Expected array of content nodes`);
 	}
-	return content.summary
-		.map((node) => {
-			if (node.kind === "text" || node.kind === "code") {
-				return node.text;
+	return content.summary.flatMap((node) => {
+		if (node.kind === "text" || node.kind === "code") {
+			return [node.text];
+		}
+		if (node.kind === "inline-tag" && node.tag === "@link") {
+			return [`[${node.text}](/reference/${getPageFileName(node.text)})`];
+		}
+		if (node.kind === "inline-tag" && node.tag === "@embedDocs") {
+			const refNode = docNodes.find(
+				(refNode) =>
+					refNode.name === node.text && refNode.kindString !== "Reference",
+			);
+			if (!refNode) {
+				throw new Error(`Could not find node for @embedDocs: ${node.text}`);
 			}
-			throw new Error(`Unrecognized content node: ${node.kind}`);
-		})
-		.join("");
+
+			return buildNodeContent(headingLevel, refNode);
+		}
+		throw new Error(`Unrecognized content node: ${node.kind}`);
+	});
 }
 
-function buildComment(node) {
+function buildComment(headingLevel, node) {
 	const descriptionTag = node.summary?.blockTags?.find(
 		(tag) => tag.tag === "@description",
 	);
 	if (descriptionTag) {
-		return buildTextBlock(descriptionTag.content);
+		return buildTextBlock(headingLevel, descriptionTag.content);
 	}
-	return buildTextBlock(node.comment);
+	return buildTextBlock(headingLevel, node.comment);
 }
 
 function buildFunctionNode(headingLevel, node) {
 	const params = node.parameters?.filter((param) => param.comment);
-	if (params?.find((p) => p.name === "knownEntities")) {
-		console.dir(node.parameters);
-	}
 
 	return [
-		`${"#".repeat(headingLevel)} ${node.name} <TypeBadge>${
-			node.kindString
-		}</TypeBadge>`,
-		``,
-		getNodeSources(node),
-		``,
-		buildComment(node),
 		``,
 		node.parameters?.length === 0 ? `**Parameters:** None.` : ``,
 		params?.length > 0 ? `**Parameters:**` : ``,
-		...(params?.map((param) => {
+		...(params?.flatMap((param) => {
 			return [
 				` - ${param.name}`,
-				...(param.comment ? [`: ${buildTextBlock(param.comment)}`] : []),
-			].join("");
+				...(param.comment
+					? [`: `, ...buildTextBlock(headingLevel + 1, param.comment)]
+					: []),
+			];
 		}) ?? []),
 		``,
 	];
@@ -98,13 +108,7 @@ function buildClassNode(headingLevel, node) {
 				return [];
 			}
 
-			if (childNode.signatures) {
-				return childNode.signatures.map((signature) => ({
-					...signature,
-					...childNode,
-				}));
-			}
-			return [childNode];
+			return flattenNode(childNode);
 		}) ?? [];
 	const properties = children.filter(
 		(childNode) => childNode.kindString === "Property",
@@ -115,17 +119,9 @@ function buildClassNode(headingLevel, node) {
 
 	return [
 		``,
-		`${"#".repeat(headingLevel)} ${node.name} <TypeBadge>${
-			node.kindString
-		}</TypeBadge>`,
-		``,
-		getNodeSources(node),
-		``,
-		buildComment(node),
-		``,
 		...(properties.length > 0
 			? [
-					`${"#".repeat(headingLevel + 1)} Properties`,
+					`${"#".repeat(headingLevel)} Properties`,
 					``,
 					...properties.map(
 						(childNode) =>
@@ -138,7 +134,7 @@ function buildClassNode(headingLevel, node) {
 			: []),
 		...(methods.length > 0
 			? [
-					`${"#".repeat(headingLevel + 1)} Methods`,
+					`${"#".repeat(headingLevel)} Methods`,
 					``,
 					...methods.map(
 						(childNode) =>
@@ -150,45 +146,67 @@ function buildClassNode(headingLevel, node) {
 			  ]
 			: []),
 		...properties.flatMap((childNode) =>
-			buildFunctionNode(headingLevel + 2, childNode),
+			buildNode(headingLevel + 1, childNode),
 		),
-		...methods.flatMap((childNode) =>
-			buildFunctionNode(headingLevel + 2, childNode),
-		),
+		...methods.flatMap((childNode) => buildNode(headingLevel + 1, childNode)),
 		``,
 	];
 }
 
-function buildNode(headingLevel, node) {
+function buildNodeContent(headingLevel, node) {
 	switch (node.kindString) {
 		case "Class":
 		case "Interface":
 		case "Type alias":
 			return buildClassNode(headingLevel, node);
 		case "Function":
+		case "Method":
 			return buildFunctionNode(headingLevel, node);
+		case "Property":
+			return [];
 
 		default:
 			throw new Error(`Unrecognized node type: ${node.kindString}`);
 	}
 }
 
+function buildNode(headingLevel, node) {
+	return [
+		`${"#".repeat(headingLevel)} ${node.name} <TypeBadge>${
+			node.kindString
+		}</TypeBadge>`,
+		``,
+		...getNodeSources(node),
+		``,
+		...buildComment(headingLevel + 1, node),
+		...buildNodeContent(headingLevel + 1, node),
+	];
+}
+
 function buildPage(node) {
+	const suffixContent =
+		node.comment?.blockTags?.flatMap((tag) =>
+			tag.tag === "@docs" ? tag.content : [],
+		) ?? [];
+
 	return [
 		`import { TypeBadge } from '../../components/TypeBadge';`,
 		``,
 		...buildNode(1, node),
-	].join("\n");
+		...buildTextBlock(2, { summary: suffixContent }),
+	];
 }
 
 const meta = {};
 
 for (const node of docNodes) {
+	// Hide things that are not explicitly exported
 	if (!mainExport.includes(node.name)) {
 		continue;
 	}
 
 	const fileName = getPageFileName(node.name);
+	const page = buildPage(node);
 
 	meta[fileName] = node.name;
 	fs.writeFileSync(
@@ -200,7 +218,7 @@ for (const node of docNodes) {
 			"reference",
 			`${fileName}.mdx`,
 		),
-		buildPage(node),
+		page.join("\n"),
 	);
 }
 
