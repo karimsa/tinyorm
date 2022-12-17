@@ -233,7 +233,7 @@ export class Connection
 	}
 
 	/**
-	 * Runs a migration, and fails if it has already been run.
+	 * Runs a migration, and fails if a migration with the same name has already run.
 	 *
 	 * Note: the migrations table must be synchronized before this method is called. To do this,
 	 * please see [`Connection.initMigrations`](#initmigrations-method).
