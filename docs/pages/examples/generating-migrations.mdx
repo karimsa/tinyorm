@@ -31,3 +31,11 @@ await pool.withTransaction(async (tx) => {
   await tx.executeMigration('my migration', suggestions.map(s => s.queries).flat());
 });
 ```
+
+In a development environment, you may wish to use the auto-synchronization to avoid migrations:
+
+```ts
+await pool.withTransaction(async (tx) => {
+  await tx.synchronizeEntity(User);
+});
+```

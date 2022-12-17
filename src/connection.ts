@@ -194,12 +194,12 @@ export class Connection
 	}
 
 	/**
-	 * Synchronizes an entity's database state with the entity's definition.
+	 * Synchronizes an entity's database state with the entity's definition. Useful for testing and development
+	 * environments. For production, it is recommended that you checkin the migrations to source control.
+	 *
 	 * @param entity any tinyorm entity
 	 */
 	async synchronizeEntity(entity: EntityFromShape<unknown>) {
-		await this.initMigrations();
-
 		for (const query of await this.getMigrationQueries(entity)) {
 			for (const subQuery of query.queries) {
 				await this.query(subQuery);
@@ -208,7 +208,8 @@ export class Connection
 	}
 
 	/**
-	 * Synchronizes the migrations table so migrations can be run.
+	 * Synchronizes the migrations table so migrations can be run. This should be called before any
+	 * migrations are run.
 	 */
 	async initMigrations() {
 		for (const { queries } of await this.getMigrationQueries(Migrations)) {
