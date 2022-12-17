@@ -15,6 +15,32 @@ const config: DocsThemeConfig = {
 	project: {
 		link: "https://github.com/karimsa/tinyorm",
 	},
+	docsRepositoryBase: "https://github.com/karimsa/tinyorm",
+	editLink: {
+		component: ({
+			children,
+			className,
+			filePath,
+		}: {
+			children: React.ReactNode;
+			className?: string;
+			filePath?: string;
+		}) =>
+			filePath?.startsWith("pages/reference/") ? (
+				<span className={className} style={{ pointerEvents: "none" }}>
+					This page is auto-generated
+				</span>
+			) : (
+				<a
+					href={`https://github.com/karimsa/tinyorm/tree/master/docs/${filePath}`}
+					target="_blank"
+					rel='noreferrer'
+					className={className}
+				>
+					{children}
+				</a>
+			),
+	},
 	useNextSeoProps() {
 		return {
 			titleTemplate: "%s - TinyORM",
