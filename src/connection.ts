@@ -234,6 +234,10 @@ export class Connection
 
 	/**
 	 * Runs a migration, and fails if it has already been run.
+	 *
+	 * Note: the migrations table must be synchronized before this method is called. To do this,
+	 * please see [`Connection.initMigrations`](#initmigrations-method).
+	 *
 	 * @param name the name of the migration to run (recorded in the migrations table)
 	 * @param queries set of queries considered to be part of the migration
 	 */

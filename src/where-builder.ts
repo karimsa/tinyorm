@@ -15,7 +15,7 @@ import {
 } from "./queries";
 import { isElementOfArray } from "./utils";
 
-type BaseWhereQueryComparators<T, NextQueryBuilder> = {
+export type WhereQueryComparators<T, NextQueryBuilder> = {
 	// Misc
 	Equals(value: T): NextQueryBuilder;
 	NotEquals(value: T): NextQueryBuilder;
@@ -42,13 +42,10 @@ type BaseWhereQueryComparators<T, NextQueryBuilder> = {
 	// Text comparisons
 	NotLike(values: string): NextQueryBuilder;
 	Like(values: string): NextQueryBuilder;
-};
 
-export type WhereQueryComparators<T, NextQueryBuilder> =
-	BaseWhereQueryComparators<T, NextQueryBuilder> & {
-		// JSONB
-		JsonContains(subObject: string | Partial<T>): NextQueryBuilder;
-	};
+	// JSONB
+	JsonContains(subObject: string | Partial<T>): NextQueryBuilder;
+};
 
 export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 	#binaryOperator: "AND" | "OR" | null = null;
