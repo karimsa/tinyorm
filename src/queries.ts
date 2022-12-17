@@ -335,10 +335,7 @@ export function isJsonRef(value: any): value is JsonRef<unknown> {
 	);
 }
 
-/**
- * @internal
- */
-export class SqlHelpers {
+export interface SqlHelpers {
 	//
 	// Casting helpers
 	//
@@ -363,12 +360,7 @@ export class SqlHelpers {
 	 * @param value
 	 * @returns
 	 */
-	asUnescaped(value: string): UnescapedVariable {
-		return {
-			type: kUnescapedVariable,
-			value,
-		};
-	}
+	asUnescaped(value: string): UnescapedVariable;
 
 	/**
 	 * Marks a query parameter as a 'TEXT' type in postgres. This generates something like `$1::text`.
@@ -380,9 +372,7 @@ export class SqlHelpers {
 	 *
 	 * @param value value that should be treated as a string
 	 */
-	asText(value: string | number | boolean) {
-		return getQueryVariable(value, "text");
-	}
+	asText(value: string | number | boolean): QueryVariable;
 
 	/**
 	 * Marks a query parameter as a 'BOOLEAN' type in postgres. This generates something like `$1::boolean`.
@@ -394,9 +384,7 @@ export class SqlHelpers {
 	 *
 	 * @param value value that should be treated as a boolean
 	 */
-	asBool(value: unknown) {
-		return getQueryVariable(!!value, "boolean");
-	}
+	asBool(value: unknown): QueryVariable;
 
 	/**
 	 * Marks a query parameter as a 'date'. This generates something like `$1::date`, where the query parameter
@@ -411,9 +399,7 @@ export class SqlHelpers {
 	 *
 	 * @param date a valid JS date object
 	 */
-	asDate(date: Date): QueryVariable {
-		return getQueryVariable(date, "date");
-	}
+	asDate(date: Date): QueryVariable;
 
 	/**
 	 * Marks a query parameter as a 'timestamp with time zone'. This generates something like `$1::timestamp with time zone`.
@@ -425,9 +411,7 @@ export class SqlHelpers {
 	 *
 	 * @param date
 	 */
-	asTimestamp(date: Date): QueryVariable {
-		return getQueryVariable(date, "timestamp");
-	}
+	asTimestamp(date: Date): QueryVariable;
 
 	/**
 	 * Marks a query parameter as a 'jsonb'. This generates something like `$1::jsonb`.
@@ -441,12 +425,7 @@ export class SqlHelpers {
 	 *
 	 * @param value a JSON object or string
 	 */
-	asJSONB(value: string | object) {
-		if (typeof value === "object") {
-			return getQueryVariable(JSON.stringify(value), "jsonb");
-		}
-		return getQueryVariable(value, "jsonb");
-	}
+	asJSONB(value: string | object): QueryVariable;
 
 	/**
 	 * Builds an entity reference for aliased entities. This is useful for joins.
@@ -471,14 +450,7 @@ export class SqlHelpers {
 	getEntityRef(
 		entity: Pick<EntityFromShape<unknown>, "schema" | "tableName">,
 		alias?: string,
-	) {
-		if (alias) {
-			return sql.asUnescaped(
-				`"${entity.schema}"."${entity.tableName}" AS "${alias}"`,
-			);
-		}
-		return sql.asUnescaped(`"${entity.schema}"."${entity.tableName}"`);
-	}
+	): UnescapedVariable;
 
 	/**
 	 * Helper that allows you to create JSON path references in a type-safe way.
@@ -486,25 +458,14 @@ export class SqlHelpers {
 	 *
 	 * @param entity the tinyorm entity to reference
 	 */
-	json<Shape>(_: EntityFromShape<Shape>) {
-		return createJsonRefProxy({
-			column: "",
-			jsonPath: [],
-		}) as unknown as JsonRefBuilder<Shape, Shape>;
-	}
+	json<Shape>(_: EntityFromShape<Shape>): JsonRefBuilder<Shape, Shape>;
 
 	/**
 	 * Joins a set of PreparedQueries together into a single PreparedQuery.
 	 * @param queries
 	 * @returns joined query
 	 */
-	join(queries: PreparedQuery[]): PreparedQuery {
-		if (queries.length === 0) {
-			throw new Error("Cannot join zero queries");
-		}
-
-		return sql(["", ...queries.map(() => "")], ...queries);
-	}
+	join(queries: PreparedQuery[]): PreparedQuery;
 
 	/**
 	 * Creates a PreparedQuery that completely escapes query parameters. Only use this
@@ -523,54 +484,31 @@ export class SqlHelpers {
 	 * @param text
 	 * @returns
 	 */
-	unescaped(text: string): PreparedQuery {
-		return {
-			text: [text],
-			params: [],
-		};
-	}
+	unescaped(text: string): PreparedQuery;
 
 	/**
 	 * Adds given prefix to the query.
 	 */
-	prefixQuery(prefix: string, query: PreparedQuery) {
-		const text = [...query.text];
-		text[0] = `${prefix}${query.text[0]}`;
-
-		return {
-			text,
-			params: [...query.params],
-		};
-	}
+	prefixQuery(prefix: string, query: PreparedQuery): PreparedQuery;
 
 	/**
 	 * Adds given suffix to the query.
 	 */
-	suffixQuery(query: PreparedQuery, suffix: string) {
-		const text = [...query.text];
-		text[query.text.length - 1] = `${
-			query.text[query.text.length - 1]
-		}${suffix}`;
-
-		return {
-			text,
-			params: [...query.params],
-		};
-	}
+	suffixQuery(query: PreparedQuery, suffix: string): PreparedQuery;
 
 	/**
 	 * Wraps a query with a prefix + suffix.
 	 */
-	wrapQuery(prefix: string, query: PreparedQuery, suffix: string) {
-		return this.suffixQuery(this.prefixQuery(prefix, query), suffix);
-	}
+	wrapQuery(
+		prefix: string,
+		query: PreparedQuery,
+		suffix: string,
+	): PreparedQuery;
 
 	/**
 	 * Wraps a query with a prefix + suffix.
 	 */
-	brackets(query: PreparedQuery) {
-		return this.wrapQuery("(", query, ")");
-	}
+	brackets(query: PreparedQuery): PreparedQuery;
 
 	/**
 	 * Finalizes a PreparedQuery into a FinalizedQuery.
@@ -583,7 +521,105 @@ export class SqlHelpers {
 	 *
 	 * A FinalizedQuery cannot be modified, but PreparedQueries can be modified.
 	 */
-	finalize(query: PreparedQuery): FinalizedQuery {
+	finalize(query: PreparedQuery): FinalizedQuery;
+}
+
+const sqlHelpers: SqlHelpers = {
+	asUnescaped: (value) => {
+		return {
+			type: kUnescapedVariable,
+			value,
+		};
+	},
+
+	asText: (value) => {
+		return getQueryVariable(value, "text");
+	},
+
+	asBool(value) {
+		return getQueryVariable(!!value, "boolean");
+	},
+
+	asDate: (date) => {
+		return getQueryVariable(date, "date");
+	},
+
+	asTimestamp: (date) => {
+		return getQueryVariable(date, "timestamp");
+	},
+
+	asJSONB: (value) => {
+		if (typeof value === "object") {
+			return getQueryVariable(JSON.stringify(value), "jsonb");
+		}
+		return getQueryVariable(value, "jsonb");
+	},
+
+	getEntityRef: (entity, alias) => {
+		if (alias) {
+			return sql.asUnescaped(
+				`"${entity.schema}"."${entity.tableName}" AS "${alias}"`,
+			);
+		}
+		return sql.asUnescaped(`"${entity.schema}"."${entity.tableName}"`);
+	},
+
+	json<Shape>(_: EntityFromShape<Shape>) {
+		return createJsonRefProxy({
+			column: "",
+			jsonPath: [],
+		}) as unknown as JsonRefBuilder<Shape, Shape>;
+	},
+
+	join: (queries) => {
+		if (queries.length === 0) {
+			throw new Error("Cannot join zero queries");
+		}
+
+		return sql(["", ...queries.map(() => "")], ...queries);
+	},
+
+	unescaped: (text) => {
+		return {
+			text: [text],
+			params: [],
+		};
+	},
+
+	prefixQuery: (prefix, query) => {
+		const text = [...query.text];
+		text[0] = `${prefix}${query.text[0]}`;
+
+		return {
+			text,
+			params: [...query.params],
+		};
+	},
+
+	suffixQuery: (query, suffix) => {
+		const text = [...query.text];
+		text[query.text.length - 1] = `${
+			query.text[query.text.length - 1]
+		}${suffix}`;
+
+		return {
+			text,
+			params: [...query.params],
+		};
+	},
+
+	wrapQuery: (prefix, query, suffix) => {
+		return sqlHelpers.suffixQuery(
+			sqlHelpers.prefixQuery(prefix, query),
+			suffix,
+		);
+	},
+
+	brackets: (query) => {
+		return sqlHelpers.wrapQuery("(", query, ")");
+	},
+
+	finalize: (query) => {
 		const finalizedQuery: FinalizedQuery = {
 			text: query.text[0] ?? "",
 			values: [],
@@ -600,8 +636,8 @@ export class SqlHelpers {
 			}
 		}
 		return finalizedQuery;
-	}
-}
+	},
+};
 
 /**
  * Helper that allows you to write SQL prepared queries as template strings. All template string
@@ -674,7 +710,7 @@ export const sql = Object.assign(
 			text: preparedQuery.text,
 		};
 	},
-	new SqlHelpers(),
+	sqlHelpers,
 );
 
 export function isFinalizedQuery(query: unknown): query is FinalizedQuery {
