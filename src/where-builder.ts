@@ -403,6 +403,22 @@ export type JoinWhereQueryBuilder<Shapes extends Record<string, object>> =
 		): AndWhereQueryBuilder<JoinWhereQueryBuilder<Shapes>> &
 			OrWhereQueryBuilder<JoinWhereQueryBuilder<Shapes>>;
 	};
+
+/**
+ * Where query builder for a single entity, where `Shape` is the shape of the entity.
+ *
+ * ```ts
+ * class User extends Entity({ tableName: 'users' }) {
+ * 	readonly id: string;
+ * 	readonly name: string;
+ * }
+ *
+ * const where = createSingleWhereBuilder(User);
+ *
+ * // Generates: WHERE name = 'Karim'
+ * const whereQuery = where('name').Equals('Karim').getQuery();
+ * ```
+ */
 export type SingleWhereQueryBuilder<Shape extends object> = ReturnType<
 	InternalSingleWhereBuilder<Shape>["getBuilder"]
 > & {
@@ -412,17 +428,27 @@ export type SingleWhereQueryBuilder<Shape extends object> = ReturnType<
 		OrWhereQueryBuilder<SingleWhereQueryBuilder<Shape>>;
 };
 
-export type AndWhereQueryBuilder<QueryBuilder extends Function> = {
+/**
+ * Where query builder where conditions can only be joined with `AND`.
+ */
+export interface AndWhereQueryBuilder<QueryBuilder extends Function> {
 	andWhere: QueryBuilder;
 	getConditionQuery: () => PreparedQuery;
 	getQuery: () => PreparedQuery;
-};
-export type OrWhereQueryBuilder<QueryBuilder extends Function> = {
+}
+
+/**
+ * Where query builder where conditions can only be joined with `OR`.
+ */
+export interface OrWhereQueryBuilder<QueryBuilder extends Function> {
 	orWhere: QueryBuilder;
 	getConditionQuery: () => PreparedQuery;
 	getQuery: () => PreparedQuery;
-};
+}
 
+/**
+ * @internal
+ */
 export type WhereQueryBuilder =
 	| AndWhereQueryBuilder<Function>
 	| OrWhereQueryBuilder<Function>;
@@ -430,6 +456,18 @@ export type WhereQueryBuilder =
 /**
  * Creates a simplified query builder that assembles the `where` part of a query for
  * a query that can only reference a single entity.
+ *
+ * ```ts
+ * class User extends Entity({ tableName: 'users' }) {
+ * 	readonly id: string;
+ * 	readonly name: string;
+ * }
+ *
+ * const where = createSingleWhereBuilder(User);
+ *
+ * // Generates: WHERE name = 'Karim'
+ * const whereQuery = where('name').Equals('Karim').getQuery();
+ * ```
  */
 export function createSingleWhereBuilder<Shape extends object>(
 	entity: EntityFromShape<Shape>,
@@ -442,6 +480,26 @@ export function createSingleWhereBuilder<Shape extends object>(
  * Creates a query builder that assembles the `where` part of a query, assuming
  * that `knownEntities` are the only entities that can be referenced in the
  * query.
+ *
+ * ```ts
+ * class User extends Entity({ tableName: 'users' }) {
+ * 	readonly id: string;
+ * 	readonly name: string;
+ * }
+ * class Post extends Entity({ tableName: 'posts' }) {
+ * 	readonly id: string;
+ * 	readonly text: string;
+ *  readonly author_id: string;
+ * }
+ *
+ * const where = createJoinWhereBuilder({
+ * 	user: User,
+ *  post: Post,
+ * });
+ *
+ * // Generates: WHERE user.name = 'Karim' AND post.id = '1'
+ * const whereQuery = where('user', 'name').Equals('Karim').andWhere('post', 'id').Equals('1').getQuery();
+ * ```
  *
  * @param knownEntities a map of entity names/aliases to their respective entity
  */
