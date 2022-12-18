@@ -1,7 +1,12 @@
 import { PoolClient as PostgresClient } from "pg";
 import PostgresQueryCursor from "pg-cursor";
 import { ZodSchema } from "zod";
-import { Connection, QueryError } from "./connection";
+import {
+	Connection,
+	ConnectionPool,
+	QueryError,
+	wrapClient,
+} from "./connection";
 import { EntityFromShape, getEntityFields } from "./entity";
 import {
 	FinalizedQuery,
@@ -56,15 +61,19 @@ abstract class BaseQueryBuilder<ResultShape> {
 	}
 
 	private async executeQuery(
-		client: PostgresClient | Connection,
+		client: PostgresClient | Connection | ConnectionPool,
 		query: FinalizedQuery,
-	) {
-		if (client instanceof Connection) {
-			return client.query(query);
+	): Promise<{ rows: unknown[]; rowCount: number }> {
+		if (client instanceof ConnectionPool) {
+			return client.withConnection((connection) =>
+				this.executeQuery(connection, query),
+			);
 		}
 
+		const connection = wrapClient(client);
+
 		try {
-			return await client.query(query);
+			return await connection.query(query);
 		} catch (err: unknown) {
 			throw new QueryError(
 				err instanceof Error ? String(err.message) : "Query failed",
@@ -75,7 +84,7 @@ abstract class BaseQueryBuilder<ResultShape> {
 	}
 
 	async getOne(
-		client: PostgresClient | Connection,
+		client: PostgresClient | Connection | ConnectionPool,
 	): Promise<ResultShape | null> {
 		const query = this.getQuery();
 		query.text += " LIMIT 1";
@@ -88,7 +97,7 @@ abstract class BaseQueryBuilder<ResultShape> {
 	}
 
 	async getOneOrFail(
-		client: PostgresClient | Connection,
+		client: PostgresClient | Connection | ConnectionPool,
 	): Promise<ResultShape> {
 		const result = await this.getOne(client);
 		if (!result) {
@@ -98,7 +107,7 @@ abstract class BaseQueryBuilder<ResultShape> {
 	}
 
 	async getMany(
-		client: PostgresClient | Connection,
+		client: PostgresClient | Connection | ConnectionPool,
 		paginationOptions?: PaginationOptions,
 	): Promise<ResultShape[]> {
 		const query = this.getQuery(paginationOptions);
@@ -107,12 +116,17 @@ abstract class BaseQueryBuilder<ResultShape> {
 	}
 
 	async *getCursor(
-		clientOrConnection: PostgresClient | Connection,
+		clientOrConnection: PostgresClient | Connection | ConnectionPool,
 		cursorOptions?: {
 			initialOffset?: number;
 			pageSize?: number;
 		},
 	): AsyncGenerator<Awaited<ResultShape>, void, undefined> {
+		if (clientOrConnection instanceof ConnectionPool) {
+			yield* this.getCursor(clientOrConnection);
+			return;
+		}
+
 		const pageSize = cursorOptions?.pageSize ?? 100;
 
 		const client =
