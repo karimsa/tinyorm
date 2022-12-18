@@ -8,6 +8,8 @@ export type {
 	ConnectionPool,
 } from "./connection";
 export { Column, ColumnOptions, Entity, Index } from "./entity";
+export { createInsertBuilder } from "./insert-builder";
+export type { InsertBuilder } from "./insert-builder";
 export {
 	Migration,
 	MigrationGenerator,

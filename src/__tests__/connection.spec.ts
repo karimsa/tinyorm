@@ -27,24 +27,6 @@ describe("Connection", () => {
 			values: [],
 		});
 	});
-	it("should allow inserting new rows", async () => {
-		expectQuery(
-			sql.finalize(
-				ConnectionPool.getInsertQuery(TestUser, {
-					id: "6f0dea07-dbf6-4e6b-9e3b-8df47d278628",
-					name: "test",
-					meta: { isCool: true },
-				}),
-			),
-		).toEqual({
-			text: `INSERT INTO "public"."test_user" ("id", "name", "meta") VALUES ($1::text, $2::text, $3::jsonb)`,
-			values: [
-				"6f0dea07-dbf6-4e6b-9e3b-8df47d278628",
-				"test",
-				`{"isCool":true}`,
-			],
-		});
-	});
 	it("should allow deleting selectively", async () => {
 		const query = await ConnectionPool.getDeleteFromQuery(TestUser, (where) =>
 			where("name").Equals("Karim"),

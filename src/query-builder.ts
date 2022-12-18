@@ -64,8 +64,7 @@ abstract class BaseQueryBuilder<ResultShape> {
 		}
 
 		try {
-			const { rows } = await client.query(query);
-			return rows;
+			return await client.query(query);
 		} catch (err: unknown) {
 			throw new QueryError(
 				err instanceof Error ? String(err.message) : "Query failed",
@@ -81,7 +80,7 @@ abstract class BaseQueryBuilder<ResultShape> {
 		const query = this.getQuery();
 		query.text += " LIMIT 1";
 
-		const rows = await this.executeQuery(client, query);
+		const { rows } = await this.executeQuery(client, query);
 		if (rows.length === 0) {
 			return null;
 		}
@@ -103,7 +102,7 @@ abstract class BaseQueryBuilder<ResultShape> {
 		paginationOptions?: PaginationOptions,
 	): Promise<ResultShape[]> {
 		const query = this.getQuery(paginationOptions);
-		const rows = await this.executeQuery(client, query);
+		const { rows } = await this.executeQuery(client, query);
 		return this.buildMany(rows);
 	}
 

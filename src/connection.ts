@@ -1,4 +1,5 @@
 import {
+	Client as PgClientBase,
 	Pool as PostgresPool,
 	PoolClient as PostgresClient,
 	PoolConfig as PostgresPoolOptions,
@@ -11,9 +12,10 @@ import {
 	getEntityFields,
 	Index,
 } from "./entity";
+import { createInsertBuilder } from "./insert-builder";
 import { debug } from "./logger";
 import { MigrationGenerator, SuggestedMigration } from "./migrations";
-import { FinalizedQuery, PostgresValueType, sql } from "./queries";
+import { FinalizedQuery, sql } from "./queries";
 import { createEventEmitter, TypeSafeEventEmitter } from "./utils";
 import {
 	createSingleWhereBuilder,
@@ -115,7 +117,7 @@ export class Connection
 	 * @param query any FinalizedQuery object
 	 * @returns set of resulting rows (not validated)
 	 */
-	async query(query: FinalizedQuery): Promise<unknown[]> {
+	async query(query: FinalizedQuery) {
 		if (!query.text) {
 			throw new Error(`Cannot run empty query`);
 		}
@@ -135,7 +137,7 @@ export class Connection
 				rowCount,
 			});
 
-			return rows;
+			return { rows: rows as unknown[], rowCount };
 		} catch (err) {
 			debug("errors", `Query failed`, {
 				query,
@@ -168,7 +170,7 @@ export class Connection
 	 * @returns promise that resolves with void when the table has been created
 	 */
 	async createTable(entity: EntityFromShape<unknown>) {
-		return this.query(
+		await this.query(
 			sql.finalize(ConnectionPool.getCreateTableQuery(entity, false)),
 		);
 	}
@@ -179,34 +181,23 @@ export class Connection
 	 * @returns promise that resolves with void when the table has been dropped
 	 */
 	async dropTable(entity: EntityFromShape<unknown>) {
-		return this.query(sql.finalize(sql`DROP TABLE IF EXISTS ${entity}`));
-	}
-
-	/**
-	 * Inserts a single row into the given entity's table.
-	 * @param entity any tinyorm entity
-	 * @param entry an instance of the entity
-	 * @returns the entity as returned by the database
-	 */
-	async insertOne<Shape>(entity: EntityFromShape<Shape>, entry: Shape) {
-		return this.query(
-			sql.finalize(ConnectionPool.getInsertQuery(entity, entry)),
-		);
+		await this.query(sql.finalize(sql`DROP TABLE IF EXISTS ${entity}`));
 	}
 
 	/**
 	 * Deletes multiple rows from the given entity's table that match the given whereBuilder.
 	 * @param entity any tinyorm entity
 	 * @param whereBuilder function that returns a WhereQueryBuilder to select specific entity rows
-	 * @returns
+	 * @returns the number of rows that were deleted
 	 */
 	async deleteFrom<Shape extends object>(
 		entity: EntityFromShape<Shape>,
 		whereBuilder: (where: SingleWhereQueryBuilder<Shape>) => WhereQueryBuilder,
 	) {
-		return this.query(
+		const { rowCount } = await this.query(
 			sql.finalize(ConnectionPool.getDeleteFromQuery(entity, whereBuilder)),
 		);
+		return rowCount;
 	}
 
 	/**
@@ -274,11 +265,15 @@ export class Connection
 	) {
 		// Create migration entry to avoid duplicate runs
 		try {
-			await this.insertOne(Migrations, {
-				name,
-				started_at: new Date(),
-				completed_at: null,
-			});
+			await createInsertBuilder(Migrations)
+				.addRows([
+					{
+						name,
+						started_at: new Date(),
+						completed_at: null,
+					},
+				])
+				.execute(this);
 		} catch (err) {
 			if (
 				!String(err).includes(
@@ -475,33 +470,6 @@ export class ConnectionPool {
 		`;
 	}
 
-	static getInsertQuery<Shape>(entity: EntityFromShape<Shape>, entry: Shape) {
-		const fieldSet = getEntityFields(entity);
-		if (fieldSet.size === 0) {
-			throw new Error(`Cannot perform an insert on an entity with no fields`);
-		}
-
-		const columns = [...fieldSet.keys()];
-
-		return sql`
-			INSERT INTO ${sql.getEntityRef(entity)}
-			${sql.brackets(
-				sql.unescaped(columns.map((column) => `"${column}"`).join(", ")),
-			)}
-			VALUES
-			${sql.brackets(
-				sql.join(
-					columns.map(
-						(column, index) =>
-							sql`${
-								(entry as Record<string, PostgresValueType>)[column]
-							}${sql.asUnescaped(index === columns.length - 1 ? "" : ", ")}`,
-					),
-				),
-			)}
-		`;
-	}
-
 	static getDeleteFromQuery<Shape extends object>(
 		entity: EntityFromShape<Shape>,
 		whereBuilder: (where: SingleWhereQueryBuilder<Shape>) => WhereQueryBuilder,
@@ -523,4 +491,15 @@ export function createConnectionPool(
 ): ConnectionPool {
 	// @ts-ignore
 	return new ConnectionPool(new PostgresPool(options));
+}
+
+function isPostgresClient(client: unknown): client is PostgresClient {
+	return client instanceof PgClientBase;
+}
+
+export function wrapClient(client: PostgresClient | Connection): Connection {
+	if (isPostgresClient(client)) {
+		return new Connection(client);
+	}
+	return client;
 }
