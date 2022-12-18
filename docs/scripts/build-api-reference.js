@@ -10,12 +10,6 @@ function flattenNode(node) {
 	if (node.kind === 1 || node.kindString === "Module") {
 		return node.children.flatMap((childNode) => flattenNode(childNode));
 	}
-	if (node.signatures) {
-		return node.signatures.map((signature) => ({
-			...signature,
-			...node,
-		}));
-	}
 	return [node];
 }
 
@@ -78,10 +72,12 @@ function buildComment(headingLevel, node) {
 	return buildTextBlock(headingLevel, node.comment);
 }
 
-function buildFunctionNode(headingLevel, node) {
-	const params = node.parameters?.filter((param) => param.comment);
+function buildFunctionSignatureNode(headingLevel, node) {
+	const params = node.parameters; //?.filter((param) => param.comment);
 
 	return [
+		``,
+		...buildTextBlock(headingLevel, node.comment),
 		``,
 		node.parameters?.length === 0 ? `**Parameters:** None.` : ``,
 		params?.length > 0 ? `**Parameters:**` : ``,
@@ -97,12 +93,43 @@ function buildFunctionNode(headingLevel, node) {
 	];
 }
 
+function buildFunctionNode(headingLevel, node) {
+	if (node.signatures?.length === 1) {
+		return buildFunctionSignatureNode(headingLevel, node.signatures[0]);
+	}
+	return node.signatures.flatMap((signature) => [
+		`${"#".repeat(headingLevel)} \`${node.name}(${
+			signature.parameters?.map((param) => param.name).join(", ") ?? ""
+		})\``,
+		``,
+		...buildFunctionSignatureNode(headingLevel, signature),
+	]);
+}
+
 function getNodeSources(node) {
-	return node.sources.map((source) => {
-		return `**Source:** [${
-			source.fileName
-		}](${`https://github.com/karimsa/tinyorm/tree/master/${source.fileName}#L${source.line}`})`;
-	});
+	const sources =
+		node.signatures?.length > 0
+			? node.sources.slice(0, node.signatures.length)
+			: node.sources;
+
+	const firstSource = sources[0];
+	if (!firstSource) {
+		return [];
+	}
+
+	const sourceRangeStart = sources[0].line;
+	const sourceRangeEnd = sources[sources.length - 1].line;
+	const sourceRange =
+		sources.length === 1
+			? `L${sourceRangeStart}`
+			: `L${sourceRangeStart}-L${sourceRangeEnd}`;
+
+	return [
+		`**Source:** [${
+			firstSource.fileName
+		}](${`https://github.com/karimsa/tinyorm/tree/master/${firstSource.fileName}#${sourceRange}`})`,
+		``,
+	];
 }
 
 function buildClassNode(headingLevel, node) {
