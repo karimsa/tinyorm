@@ -526,7 +526,12 @@ export interface SqlHelpers {
 	): PreparedQuery;
 
 	/**
-	 * Wraps a query with a prefix + suffix.
+	 * Wraps a query with round brackets (or parantheses, if you're American).
+	 *
+	 * ```ts
+	 * // Generates: (SELECT * FROM users)
+	 * sql.brackets(sql`SELECT * FROM users`)
+	 * ```
 	 */
 	brackets(query: PreparedQuery): PreparedQuery;
 
