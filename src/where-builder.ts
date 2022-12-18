@@ -15,37 +15,143 @@ import {
 } from "./queries";
 import { isElementOfArray } from "./utils";
 
-export type WhereQueryComparators<T, NextQueryBuilder> = {
+export interface WhereQueryComparators<T, NextQueryBuilder> {
 	// Misc
+	/**
+	 * Performs an exact match comparison.
+	 *
+	 * ```ts
+	 * where('name').Equals('test')
+	 * // Generates: WHERE name = 'test'
+	 * ```
+	 *
+	 * @param value value to compare against
+	 */
 	Equals(value: T): NextQueryBuilder;
+	/**
+	 * Performs an exact non-match comparison.
+	 *
+	 * ```ts
+	 * where('name').NotEquals('test')
+	 * // Generates: WHERE name != 'test'
+	 * ```
+	 *
+	 * @param value value to compare against
+	 */
 	NotEquals(value: T): NextQueryBuilder;
 
 	// Cast helpers
+	/**
+	 * Casts the current column to a boolean.
+	 *
+	 * ```ts
+	 * where('name').CastAs('boolean').Equals(true)
+	 * // Generates: WHERE name::boolean = true
+	 * ```
+	 */
 	CastAs(
-		castedType: PostgresBooleanColumnType,
+		boolean: PostgresBooleanColumnType,
 	): WhereQueryComparators<boolean, NextQueryBuilder>;
+	/**
+	 * Casts the current column to a number.
+	 *
+	 * ```ts
+	 * where('name').CastAs('double precision').Equals(3.14)
+	 * // Generates: WHERE name::double precision = 3.14
+	 * ```
+	 */
 	CastAs(
-		castedType: PostgresNumericColumnType,
+		number: PostgresNumericColumnType,
 	): WhereQueryComparators<boolean, NextQueryBuilder>;
+	/**
+	 * Casts the current column to a string.
+	 *
+	 * ```ts
+	 * where('name').CastAs('text').Equals('test')
+	 * // Generates: WHERE name::text = 'test'
+	 * ```
+	 */
 	CastAs(
-		castedType: PostgresStringColumnType,
+		string: PostgresStringColumnType,
 	): WhereQueryComparators<string, NextQueryBuilder>;
+	/**
+	 * Casts the current column to a date or timestamp type.
+	 *
+	 * ```ts
+	 * where('name').CastAs('date').Equals(new Date())
+	 * // Generates: WHERE name::date = '2021-01-01'
+	 * ```
+	 */
 	CastAs(
-		castedType: PostgresDateColumnType,
+		date: PostgresDateColumnType,
 	): WhereQueryComparators<Date, NextQueryBuilder>;
-	CastAs(castedType: string): WhereQueryComparators<unknown, NextQueryBuilder>;
+	/**
+	 * Casts the current column to any other postgres type.
+	 *
+	 * ```ts
+	 * where('name').CastAs('some_other_col_type').Equals('test')
+	 * // Generates: WHERE name::some_other_col_type = 'test'
+	 * ```
+	 */
+	CastAs(unknown: string): WhereQueryComparators<unknown, NextQueryBuilder>;
 
 	// Array
+	/**
+	 * Performs an array contains comparison, checking to see if the given column
+	 * contains any of the given values.
+	 *
+	 * ```ts
+	 * where('name').EqualsAny(['test', 'test2'])
+	 * // Generates: WHERE name = ANY(array{'test', 'test2'})
+	 * ```
+	 *
+	 * @param values
+	 */
 	EqualsAny(values: T[]): NextQueryBuilder;
+	/**
+	 * Performs an array contains comparison, checking to see if the given column
+	 * contains none of the given values.
+	 *
+	 * ```ts
+	 * where('name').EqualsNone(['test', 'test2'])
+	 * // Generates: WHERE name <> ANY(array{'test', 'test2'})
+	 * ```
+	 */
 	EqualsNone(values: T[]): NextQueryBuilder;
 
 	// Text comparisons
-	NotLike(values: string): NextQueryBuilder;
+	/**
+	 * Performs a partial text comparison.
+	 *
+	 * ```ts
+	 * where('name').Like('%test%')
+	 * // Generates: WHERE name LIKE '%test%'
+	 * ```
+	 */
 	Like(values: string): NextQueryBuilder;
+	/**
+	 * Performs a partial text non-match comparison.
+	 *
+	 * ```ts
+	 * where('name').NotLike('%test%')
+	 * // Generates: WHERE name NOT LIKE '%test%'
+	 * ```
+	 */
+	NotLike(values: string): NextQueryBuilder;
 
 	// JSONB
+	/**
+	 * Performs a JSONB sub-object search comparison.
+	 *
+	 * ```ts
+	 * where('data').JsonContains({ test: 'test' })
+	 * // Generates: WHERE data @> '{"test": "test"}'
+	 * ```
+	 *
+	 * See [postgres docs](https://www.postgresql.org/docs/9.5/functions-json.html) for more information.
+	 */
 	JsonContains(subObject: string | Partial<T>): NextQueryBuilder;
-};
+}
 
 export class InternalWhereBuilder<Shapes extends Record<string, object>> {
 	#binaryOperator: "AND" | "OR" | null = null;
@@ -415,6 +521,8 @@ export type JoinWhereQueryBuilder<Shapes extends Record<string, object>> =
  * // Generates: WHERE name = 'Karim'
  * const whereQuery = where('name').Equals('Karim').getQuery();
  * ```
+ *
+ * For possible comparators, see {@link WhereQueryComparators}.
  */
 export type SingleWhereQueryBuilder<Shape extends object> = ReturnType<
 	InternalSingleWhereBuilder<Shape>["getBuilder"]
@@ -427,6 +535,8 @@ export type SingleWhereQueryBuilder<Shape extends object> = ReturnType<
 
 /**
  * Where query builder where conditions can only be joined with `AND`.
+ *
+ * For possible comparators, see {@link WhereQueryComparators}.
  */
 export interface AndWhereQueryBuilder<QueryBuilder extends Function> {
 	andWhere: QueryBuilder;
@@ -436,6 +546,8 @@ export interface AndWhereQueryBuilder<QueryBuilder extends Function> {
 
 /**
  * Where query builder where conditions can only be joined with `OR`.
+ *
+ * For possible comparators, see {@link WhereQueryComparators}.
  */
 export interface OrWhereQueryBuilder<QueryBuilder extends Function> {
 	orWhere: QueryBuilder;
@@ -465,6 +577,8 @@ export type WhereQueryBuilder =
  * // Generates: WHERE name = 'Karim'
  * const whereQuery = where('name').Equals('Karim').getQuery();
  * ```
+ *
+ * For possible comparators, see {@link WhereQueryComparators}.
  */
 export function createSingleWhereBuilder<Shape extends object>(
 	entity: EntityFromShape<Shape>,
@@ -497,6 +611,8 @@ export function createSingleWhereBuilder<Shape extends object>(
  * // Generates: WHERE user.name = 'Karim' AND post.id = '1'
  * const whereQuery = where('user', 'name').Equals('Karim').andWhere('post', 'id').Equals('1').getQuery();
  * ```
+ *
+ * For possible comparators, see {@link WhereQueryComparators}.
  *
  * @param knownEntities a map of entity names/aliases to their respective entity
  */

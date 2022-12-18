@@ -41,4 +41,5 @@ export type {
 	JoinWhereQueryBuilder,
 	OrWhereQueryBuilder,
 	SingleWhereQueryBuilder,
+	WhereQueryComparators,
 } from "./where-builder";
