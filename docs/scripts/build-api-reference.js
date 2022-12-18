@@ -73,7 +73,7 @@ function buildComment(headingLevel, node) {
 }
 
 function buildFunctionSignatureNode(headingLevel, node) {
-	const params = node.parameters; //?.filter((param) => param.comment);
+	const params = node.parameters;
 
 	return [
 		``,
@@ -94,15 +94,16 @@ function buildFunctionSignatureNode(headingLevel, node) {
 }
 
 function buildFunctionNode(headingLevel, node) {
-	if (node.signatures?.length === 1) {
-		return buildFunctionSignatureNode(headingLevel, node.signatures[0]);
-	}
 	return node.signatures.flatMap((signature) => [
-		`${"#".repeat(headingLevel)} \`${node.name}(${
-			signature.parameters?.map((param) => param.name).join(", ") ?? ""
-		})\``,
+		node.signatures?.length > 1
+			? [
+					`${"#".repeat(headingLevel)} \`${node.name}(${
+						signature.parameters?.map((param) => param.name).join(", ") ?? ""
+					})\``,
+			  ]
+			: [],
 		``,
-		...buildFunctionSignatureNode(headingLevel, signature),
+		...buildNodeContent(headingLevel, signature),
 	]);
 }
 
@@ -161,50 +162,41 @@ function buildClassNode(headingLevel, node) {
 	return [
 		``,
 		...(properties.length > 0
-			? [
-					`${"#".repeat(headingLevel)} Properties`,
-					``,
-					...properties.map(
-						(childNode) =>
-							` - [${childNode.name}](#${getPageFileName(
-								childNode.name,
-							)}-${childNode.kindString.toLowerCase()})`,
-					),
-					``,
-			  ]
-			: []),
-		...(methods.length > 0
-			? [
-					`${"#".repeat(headingLevel)} Methods`,
-					``,
-					...methods.map(
-						(childNode) =>
-							` - [${childNode.name}](#${getPageFileName(
-								childNode.name,
-							)}-${childNode.kindString.toLowerCase()})`,
-					),
-					``,
-			  ]
+			? [`${"#".repeat(headingLevel)} Properties`]
 			: []),
 		...properties.flatMap((childNode) =>
 			buildNode(headingLevel + 1, childNode),
 		),
+
+		...(methods.length > 0 ? [`${"#".repeat(headingLevel)} Methods`] : []),
 		...methods.flatMap((childNode) => buildNode(headingLevel + 1, childNode)),
 		``,
 	];
 }
 
 function buildNodeContent(headingLevel, node) {
+	const suffixContent =
+		node.comment?.blockTags?.flatMap((tag) =>
+			tag.tag === "@docs"
+				? buildTextBlock(headingLevel, { summary: tag.content })
+				: [],
+		) ?? [];
+
 	switch (node.kindString) {
 		case "Class":
 		case "Interface":
 		case "Type alias":
-			return buildClassNode(headingLevel, node);
+			return [...buildClassNode(headingLevel, node), ...suffixContent];
 		case "Function":
 		case "Method":
-			return buildFunctionNode(headingLevel, node);
+			return [...buildFunctionNode(headingLevel, node), ...suffixContent];
+		case "Call signature":
+			return [
+				...buildFunctionSignatureNode(headingLevel, node),
+				...suffixContent,
+			];
 		case "Property":
-			return [];
+			return [...suffixContent];
 
 		default:
 			throw new Error(`Unrecognized node type: ${node.kindString}`);
@@ -225,16 +217,10 @@ function buildNode(headingLevel, node) {
 }
 
 function buildPage(node) {
-	const suffixContent =
-		node.comment?.blockTags?.flatMap((tag) =>
-			tag.tag === "@docs" ? tag.content : [],
-		) ?? [];
-
 	return [
 		`import { TypeBadge } from '../../components/TypeBadge';`,
 		``,
 		...buildNode(1, node),
-		...buildTextBlock(2, { summary: suffixContent }),
 	];
 }
 

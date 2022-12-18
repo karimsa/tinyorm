@@ -28,7 +28,10 @@ export {
 	createSimpleQueryBuilder,
 	PaginationOptions,
 } from "./query-builder";
-export type { JoinedQueryBuilder, QueryBuilder } from "./query-builder";
+export type {
+	JoinedQueryBuilder,
+	SimpleQueryBuilder,
+} from "./query-builder";
 export {
 	createJoinWhereBuilder,
 	createSingleWhereBuilder,

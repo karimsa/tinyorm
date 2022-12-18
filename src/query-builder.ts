@@ -144,7 +144,7 @@ type ValidAlias<Alias, ReservedAliasRecord> = Alias &
 		? { invalid: "Cannot reuse an existing alias" }
 		: {});
 
-export class QueryBuilder<
+export class SimpleQueryBuilder<
 	Shape extends object,
 	ResultShape,
 > extends BaseQueryBuilder<ResultShape> {
@@ -165,9 +165,9 @@ export class QueryBuilder<
 
 	select<Keys extends string & keyof Shape>(
 		keys: Keys[],
-	): QueryBuilder<Shape, ResultShape & Pick<Shape, Keys>> {
+	): SimpleQueryBuilder<Shape, ResultShape & Pick<Shape, Keys>> {
 		this.#selectedFields.push(...keys);
-		return this as QueryBuilder<Shape, ResultShape & Pick<Shape, Keys>>;
+		return this as SimpleQueryBuilder<Shape, ResultShape & Pick<Shape, Keys>>;
 	}
 
 	selectAll() {
@@ -176,7 +176,7 @@ export class QueryBuilder<
 				this.#selectedFields.push(key);
 			}
 		}
-		return this as unknown as QueryBuilder<Shape, ResultShape & Shape>;
+		return this as unknown as SimpleQueryBuilder<Shape, ResultShape & Shape>;
 	}
 
 	selectRaw<Alias extends string, T extends PostgresValueType>(
@@ -185,7 +185,7 @@ export class QueryBuilder<
 		schema: ZodSchema<T>,
 	) {
 		this.#selectedComputedFields.set(alias, { query, schema });
-		return this as unknown as QueryBuilder<
+		return this as unknown as SimpleQueryBuilder<
 			Shape,
 			ResultShape & { [key in Alias]: T }
 		>;
@@ -716,8 +716,10 @@ export class JoinedQueryBuilder<
  */
 export function createSimpleQueryBuilder() {
 	return {
-		from<T extends object>(entity: EntityFromShape<T>): QueryBuilder<T, {}> {
-			return new QueryBuilder(entity);
+		from<T extends object>(
+			entity: EntityFromShape<T>,
+		): SimpleQueryBuilder<T, {}> {
+			return new SimpleQueryBuilder(entity);
 		},
 	};
 }
