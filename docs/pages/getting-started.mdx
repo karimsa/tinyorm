@@ -35,10 +35,52 @@ You must target ES2015 or higher to use TinyORM.
 
 TODO: This is not going to work well for people using `tsc` to do their module transpilation.
 
-### `strictPropertyInitialization`
+### `!` / `strictPropertyInitialization`
 
-To write entity classes, you will need to set `strictPropertyInitialization` to false in your `tsconfig.json`.
-This stops `tsc` from complaining about class properties that are compile-time only.
+To decorate entity class columns, you have two options for your project setup that will allow you to
+write classes with uninitialized properties. By default, in strict mode, TS will complain about classes
+that specify properties without initializing them. This is sensible behavior, but TinyORM's column decorators
+need the empty property definitions to generate migrations.
+
+**Recommendation:** Use the `!` operator when defining your columns. For example:
+
+```ts
+import { Column } from '@karimsa/tinyorm';
+
+class User {
+  @Column()
+  id!: number;
+
+  @Column()
+  name!: string;
+}
+```
+
+This allows you to use TS in strict mode, and still use TinyORM.
+
+**Workaround:** Set `strictPropertyInitialization` to false in your `tsconfig.json`.
+
+```json
+{
+  "compilerOptions": {
+    "strictPropertyInitialization": false
+  }
+}
+```
+
+And then you can write your columns without using the `!` operator:
+
+```ts
+import { Column } from '@karimsa/tinyorm';
+
+class User {
+  @Column()
+  id: number;
+
+  @Column()
+  name: string;
+}
+```
 
 ### `experimentalDecorators`
 
