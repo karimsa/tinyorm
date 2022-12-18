@@ -133,9 +133,7 @@ describe("QueryBuilder", () => {
 							where("organization", "name").Like("Foko"),
 						]),
 					)
-					.offset(5)
-					.limit(10)
-					.getQuery(),
+					.getQuery({ offset: 5, limit: 10 }),
 			).toEqual({
 				text: `
 					SELECT

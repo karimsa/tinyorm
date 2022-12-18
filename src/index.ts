@@ -26,6 +26,7 @@ export {
 export {
 	createJoinQueryBuilder,
 	createSimpleQueryBuilder,
+	PaginationOptions,
 } from "./query-builder";
 export type { JoinedQueryBuilder, QueryBuilder } from "./query-builder";
 export {

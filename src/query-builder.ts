@@ -19,22 +19,34 @@ import {
 	SingleWhereQueryBuilder,
 } from "./where-builder";
 
+/**
+ * Pagination options that can be set on any query retrieval for how
+ * many results to return and where to start from.
+ */
+export interface PaginationOptions {
+	limit?: number;
+	offset?: number;
+}
+
+function getPaginationQuery({
+	limit,
+	offset,
+}: PaginationOptions = {}): PreparedQuery {
+	return sql.join([
+		offset === undefined ? sql`` : sql`OFFSET ${offset}`,
+		limit === undefined ? sql`` : sql`LIMIT ${limit}`,
+	]);
+}
+
 abstract class BaseQueryBuilder<ResultShape> {
 	abstract buildOne(row: null): null;
 	abstract buildOne(row: unknown): ResultShape;
-	abstract getPreparedQuery(): PreparedQuery;
+	abstract getPreparedQuery(
+		paginationOptions?: PaginationOptions,
+	): PreparedQuery;
 
-	protected queryLimit?: number;
-	protected queryOffset?: number;
-
-	protected getPaginationQuery() {
-		return sql`${
-			this.queryOffset !== undefined ? sql` OFFSET ${this.queryOffset}` : sql``
-		}${this.queryLimit !== undefined ? sql` LIMIT ${this.queryLimit}` : sql``}`;
-	}
-
-	getQuery(): FinalizedQuery {
-		return sql.finalize(this.getPreparedQuery());
+	getQuery(paginationOptions?: PaginationOptions): FinalizedQuery {
+		return sql.finalize(this.getPreparedQuery(paginationOptions));
 	}
 
 	buildMany(rows: unknown[]): ResultShape[] {
@@ -86,8 +98,11 @@ abstract class BaseQueryBuilder<ResultShape> {
 		return result;
 	}
 
-	async getMany(client: PostgresClient | Connection): Promise<ResultShape[]> {
-		const query = this.getQuery();
+	async getMany(
+		client: PostgresClient | Connection,
+		paginationOptions?: PaginationOptions,
+	): Promise<ResultShape[]> {
+		const query = this.getQuery(paginationOptions);
 		const rows = await this.executeQuery(client, query);
 		return this.buildMany(rows);
 	}
@@ -101,13 +116,14 @@ abstract class BaseQueryBuilder<ResultShape> {
 	): AsyncGenerator<Awaited<ResultShape>, void, undefined> {
 		const pageSize = cursorOptions?.pageSize ?? 100;
 
-		this.queryLimit = this.queryOffset = undefined;
 		const client =
 			clientOrConnection instanceof Connection
 				? clientOrConnection.client
 				: clientOrConnection;
+
+		const query = this.getQuery();
 		const cursor = client.query(
-			new PostgresQueryCursor(this.getQuery().text, this.getQuery().values),
+			new PostgresQueryCursor(query.text, query.values),
 		);
 
 		while (true) {
@@ -249,22 +265,6 @@ export class QueryBuilder<
 		return sql.wrapQuery(` GROUP BY (`, query, `)`);
 	}
 
-	limit(size: number) {
-		if (this.queryLimit !== undefined) {
-			throw new Error(`Cannot set limit twice on the same query builder`);
-		}
-		this.queryLimit = size;
-		return this as Omit<QueryBuilder<Shape, ResultShape>, "limit">;
-	}
-
-	offset(offset: number) {
-		if (this.queryOffset !== undefined) {
-			throw new Error(`Cannot set offset twice on the same query builder`);
-		}
-		this.queryOffset = offset;
-		return this as unknown as Omit<QueryBuilder<Shape, ResultShape>, "offset">;
-	}
-
 	#lockingDirective: PreparedQuery = sql``;
 	withLock(
 		lockType:
@@ -281,7 +281,7 @@ export class QueryBuilder<
 		return this;
 	}
 
-	getPreparedQuery(): PreparedQuery {
+	getPreparedQuery(paginationOptions?: PaginationOptions): PreparedQuery {
 		if (this.#selectedFields.length === 0) {
 			throw new Error(`No fields selected, cannot perform select query`);
 		}
@@ -315,7 +315,7 @@ export class QueryBuilder<
 			}
 			${this.#getGroupBy()}
 			${this.#getOrderBy()}
-			${this.getPaginationQuery()}
+			${getPaginationQuery(paginationOptions)}
 			${this.#lockingDirective}
 		`;
 	}
@@ -597,28 +597,6 @@ export class JoinedQueryBuilder<
 		return sql.wrapQuery(` GROUP BY (`, query, `)`);
 	}
 
-	limit(size: number) {
-		if (this.queryLimit !== undefined) {
-			throw new Error(`Cannot set limit twice on the same query builder`);
-		}
-		this.queryLimit = size;
-		return this as unknown as Omit<
-			JoinedQueryBuilder<Shapes, PartialShapes, ResultShape>,
-			"limit"
-		>;
-	}
-
-	offset(offset: number) {
-		if (this.queryOffset !== undefined) {
-			throw new Error(`Cannot set offset twice on the same query builder`);
-		}
-		this.queryOffset = offset;
-		return this as unknown as Omit<
-			JoinedQueryBuilder<Shapes, PartialShapes, ResultShape>,
-			"offset"
-		>;
-	}
-
 	#lockingDirective: PreparedQuery = sql``;
 	withLock<Alias extends string & keyof Shapes>(
 		alias: Alias | "ALL",
@@ -639,7 +617,7 @@ export class JoinedQueryBuilder<
 		return this;
 	}
 
-	getPreparedQuery(): PreparedQuery {
+	getPreparedQuery(paginationOptions?: PaginationOptions): PreparedQuery {
 		const selectedFields = this.#getSelectedFields();
 		const selectedComputedFields = this.#getSelectedComputedFields();
 
@@ -666,7 +644,7 @@ export class JoinedQueryBuilder<
 			${this.#whereQueries.length > 0 ? sql.join(this.#whereQueries) : sql``}
 			${this.#getGroupBy()}
 			${this.#getOrderBy()}
-			${this.getPaginationQuery()}
+			${getPaginationQuery(paginationOptions)}
 			${this.#lockingDirective}
 		`;
 	}
