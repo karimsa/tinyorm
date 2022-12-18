@@ -413,10 +413,10 @@ export interface SqlHelpers {
 	asDate(date: Date): QueryVariable;
 
 	/**
-	 * Marks a query parameter as a 'timestamp with time zone'. This generates something like `$1::timestamp with time zone`.
+	 * Marks a query parameter as a 'timestamp without time zone'. This generates something like `$1::timestamp without time zone`.
 	 *
 	 * ```ts
-	 * // Generates: SELECT * FROM user where created_at = $1::timestamp with time zone
+	 * // Generates: SELECT * FROM user where created_at = $1::timestamp without time zone
 	 * sql`SELECT * FROM user where created_at = ${sql.asTimestamp(new Date())}`
 	 * ```
 	 *
