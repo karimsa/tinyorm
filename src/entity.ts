@@ -21,6 +21,7 @@ const fieldRegistry = new Registry<object, Map<string, ColumnStoredOptions>>();
 /**
  * Factory for creating base classes for entities.
  *
+ * @pageCategory Decorators
  * @param options.schema the database schema within which the entity will live (defaults to "public")
  * @param options.tableName the name of the table in which the entity will live
  * @returns a base class that you must extend to create your entity
@@ -47,6 +48,7 @@ const indexRegistry = new Registry<
 /**
  * Decorator for defining an index on an entity.
  *
+ * @pageCategory Decorators
  * @param entity any tinyorm entity
  */
 export function Index<Shape>(
@@ -161,6 +163,8 @@ export interface ColumnOptions {
 
 /**
  * Decorator that defines a column on an entity, as described by {@link ColumnOptions}.
+ *
+ * @pageCategory Decorators
  */
 export function Column(options: ColumnOptions) {
 	return function (target: object, propertyKey: string) {

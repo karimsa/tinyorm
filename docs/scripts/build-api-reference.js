@@ -32,6 +32,37 @@ function getPageFileName(pageName) {
 		.replace(/[^\w]+/g, "-");
 }
 
+const defaultCategoriesByType = {
+	Class: "Types",
+	Interface: "Types",
+	"Type alias": "Types",
+	Function: "Functions",
+	Error: "Errors",
+};
+
+function getPageCategory(node) {
+	const pageCategoryTag =
+		node.comment?.blockTags?.find((tag) => tag.tag === "@pageCategory") ??
+		node.signatures?.reduce(
+			(blockTag, sig) =>
+				blockTag ??
+				sig.comment?.blockTags?.find((tag) => tag.tag === "@pageCategory"),
+			undefined,
+		);
+	const parsedType = node.extendedTypes?.find((ext) => ext.name === "Error")
+		? "Error"
+		: node.kindString;
+
+	return (
+		pageCategoryTag?.content
+			.map((node) => node.text)
+			.join("")
+			.trim() ||
+		defaultCategoriesByType[parsedType] ||
+		parsedType
+	);
+}
+
 function buildTextBlock(headingLevel, content) {
 	if (!content) {
 		return [];
@@ -218,13 +249,27 @@ function buildNode(headingLevel, node) {
 
 function buildPage(node) {
 	return [
-		`import { TypeBadge } from '../../components/TypeBadge';`,
+		`import { TypeBadge } from '../../../components/TypeBadge';`,
 		``,
 		...buildNode(1, node),
 	];
 }
 
-const meta = {};
+for (const node of docNodes) {
+	// Hide things that are not explicitly exported
+	if (!mainExport.includes(node.name)) {
+		continue;
+	}
+
+	const pageCategory = getPageCategory(node);
+
+	fs.mkdirSync(
+		path.resolve(__dirname, "..", "pages", "reference", pageCategory),
+		{ recursive: true },
+	);
+}
+
+const metaByCategory = {};
 
 for (const node of docNodes) {
 	// Hide things that are not explicitly exported
@@ -233,16 +278,29 @@ for (const node of docNodes) {
 	}
 
 	const fileName = getPageFileName(node.name);
+	const pageCategory = getPageCategory(node);
 	const page = buildPage(node);
 
+	const meta = metaByCategory[pageCategory] ?? {};
+	metaByCategory[pageCategory] = meta;
 	meta[fileName] = node.name;
+
 	fs.writeFileSync(
-		path.resolve(__dirname, "..", "pages", "reference", `${fileName}.mdx`),
+		path.resolve(
+			__dirname,
+			"..",
+			"pages",
+			"reference",
+			pageCategory,
+			`${fileName}.mdx`,
+		),
 		page.join("\n"),
 	);
 }
 
-fs.writeFileSync(
-	path.resolve(__dirname, "..", "pages", "reference", "_meta.json"),
-	JSON.stringify(meta, null, "\t"),
-);
+for (const [category, meta] of Object.entries(metaByCategory)) {
+	fs.writeFileSync(
+		path.resolve(__dirname, "..", "pages", "reference", category, "_meta.json"),
+		JSON.stringify(meta, null, "\t"),
+	);
+}
