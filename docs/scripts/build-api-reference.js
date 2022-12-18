@@ -264,7 +264,13 @@ for (const node of docNodes) {
 	const pageCategory = getPageCategory(node);
 
 	fs.mkdirSync(
-		path.resolve(__dirname, "..", "pages", "reference", pageCategory),
+		path.resolve(
+			__dirname,
+			"..",
+			"pages",
+			"reference",
+			pageCategory.toLowerCase(),
+		),
 		{ recursive: true },
 	);
 }
@@ -291,16 +297,40 @@ for (const node of docNodes) {
 			"..",
 			"pages",
 			"reference",
-			pageCategory,
+			pageCategory.toLowerCase(),
 			`${fileName}.mdx`,
 		),
 		page.join("\n"),
 	);
 }
 
+fs.writeFileSync(
+	path.resolve(__dirname, "..", "pages", "reference", "_meta.json"),
+	JSON.stringify(
+		Object.keys(metaByCategory)
+			.sort()
+			.reduce(
+				(meta, category) => ({
+					...meta,
+					[category.toLowerCase()]: category,
+				}),
+				{},
+			),
+		null,
+		"\t",
+	),
+);
+
 for (const [category, meta] of Object.entries(metaByCategory)) {
 	fs.writeFileSync(
-		path.resolve(__dirname, "..", "pages", "reference", category, "_meta.json"),
+		path.resolve(
+			__dirname,
+			"..",
+			"pages",
+			"reference",
+			category.toLowerCase(),
+			"_meta.json",
+		),
 		JSON.stringify(meta, null, "\t"),
 	);
 }
