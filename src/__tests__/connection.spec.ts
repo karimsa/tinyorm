@@ -5,11 +5,11 @@ import { expectQuery } from "./util";
 
 class TestUser extends Entity({ schema: "public", tableName: "test_user" }) {
 	@Column({ type: 'uuid' })
-	readonly id: string;
+	readonly id!: string;
 	@Column({ type: 'text' })
-	readonly name: string;
+	readonly name!: string;
 	@Column({ type: 'jsonb' })
-	readonly meta: { isCool: boolean };
+	readonly meta!: { isCool: boolean };
 }
 
 describe("Connection", () => {

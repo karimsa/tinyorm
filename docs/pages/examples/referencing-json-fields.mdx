@@ -5,13 +5,13 @@ import { Entity, Column, Index, sql } from '@karimsa/tinyorm';
 
 export class User extends Entity({ schema: 'app', tableName: 'users' }) {
   @Column({ type: 'uuid' })
-  readonly id: string;
+  readonly id!: string;
 
   @Column({ type: 'text' })
-  readonly name: string;
+  readonly name!: string;
 
   @Column({ type: 'jsonb' })
-  readonly data: { foo: string; list: { bar: string }[] };
+  readonly data!: { foo: string; list: { bar: string }[] };
 }
 
 // SELECT * FROM "app"."users" WHERE (data->foo)::text = 'test';

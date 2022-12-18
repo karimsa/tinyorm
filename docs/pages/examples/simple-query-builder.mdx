@@ -5,13 +5,13 @@ import { Entity, Column, createSimpleQueryBuilder } from '@karimsa/tinyorm';
 
 export class User extends Entity({ schema: 'app', tableName: 'users' }) {
   @Column({ type: 'uuid' })
-  readonly id: string;
+  readonly id!: string;
 
   @Column({ type: 'text' })
-  readonly name: string;
+  readonly name!: string;
 
   @Column({ type: 'text' })
-  readonly foo: string;
+  readonly foo!: string;
 }
 
 // This will execute: SELECT id, name FROM app.users WHERE name = 'Karim';

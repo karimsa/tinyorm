@@ -13,26 +13,26 @@ import { expectQuery, getResolvedType } from "./util";
 @Index(User)('idx_status', sql`(status)`)
 class User extends Entity({ schema: "app", tableName: "user" }) {
 	@Column({ type: 'uuid' })
-	readonly id: string;
+	readonly id!: string;
 	@Column({ type: 'text' })
-	readonly status: "Active" | "Inactive";
+	readonly status!: "Active" | "Inactive";
 	@Column({ type: 'text' })
-	readonly name: string;
+	readonly name!: string;
 	@Column({ type: 'uuid[]' })
-	readonly organization_ids: string[];
+	readonly organization_ids!: string[];
 }
 
 class UserPost extends Entity({ schema: "app", tableName: "user_post" }) {
 	@Column({ type: 'uuid' })
-	readonly id: string;
+	readonly id!: string;
 	@Column({ type: 'uuid' })
-	readonly user_id: string;
+	readonly user_id!: string;
 	@Column({ type: 'uuid' })
-	readonly post_id: string;
+	readonly post_id!: string;
 	@Column({ type: 'text' })
-	readonly reaction: "Like" | "Dislike" | "Love";
+	readonly reaction!: "Like" | "Dislike" | "Love";
 	@Column({ type: 'timestamp with time zone' })
-	readonly reacted_at: Date;
+	readonly reacted_at!: Date;
 }
 
 interface PostMeta {
@@ -46,15 +46,15 @@ interface PostMeta {
 @Index(Post)('idx_active', sql`USING btree (id ASC, author_id ASC) WHERE content = 'Hello, world!'`)
 class Post extends Entity({ schema: "app", tableName: "post" }) {
 	@Column({ type: 'uuid' })
-	readonly id: string;
+	readonly id!: string;
 	@Column({ type: 'uuid' })
-	readonly author_id: string;
+	readonly author_id!: string;
 	@Column({ type: 'text' })
-	readonly content: string;
+	readonly content!: string;
 	@Column({ type: 'timestamp with time zone' })
-	readonly created_at: Date;
+	readonly created_at!: Date;
 	@Column({type: 'jsonb'})
-	readonly meta: PostMeta;
+	readonly meta!: PostMeta;
 }
 
 class Organization extends Entity({
@@ -62,11 +62,11 @@ class Organization extends Entity({
 	tableName: "organization",
 }) {
 	@Column({ type: 'uuid' })
-	readonly id: string;
+	readonly id!: string;
 	@Column({ type: 'text' })
-	readonly name: string;
+	readonly name!: string;
 	@Column({ type: 'text' })
-	readonly organization_id: string;
+	readonly organization_id!: string;
 }
 
 describe("QueryBuilder", () => {

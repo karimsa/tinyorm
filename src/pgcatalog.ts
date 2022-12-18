@@ -6,7 +6,7 @@ export class SchemaCatalog extends Entity({
 	tableName: "schemata",
 }) {
 	@Column({ type: 'text' })
-	readonly schema_name: string;
+	readonly schema_name!: string;
 }
 
 export class TableCatalog extends Entity({
@@ -14,10 +14,10 @@ export class TableCatalog extends Entity({
 	tableName: "tables",
 }) {
 	@Column({ type: 'text' })
-	readonly table_schema: string;
+	readonly table_schema!: string;
 
 	@Column({type:'text'})
-	readonly table_name: string;
+	readonly table_name!: string;
 }
 
 export class TableColumnCatalog extends Entity({
@@ -25,22 +25,22 @@ export class TableColumnCatalog extends Entity({
 	tableName: "columns",
 }) {
 	@Column({ type: 'text' })
-	readonly table_schema: string;
+	readonly table_schema!: string;
 
 	@Column({type:'text'})
-	readonly table_name: string;
+	readonly table_name!: string;
 
 	@Column({type:'text'})
-	readonly column_name: string;
+	readonly column_name!: string;
 
 	@Column({type:'text'})
-	readonly is_nullable: string;
+	readonly is_nullable!: string;
 
 	@Column({type:'text'})
-	readonly column_default: string;
+	readonly column_default!: string;
 
 	@Column({type:'text'})
-	readonly data_type: string;
+	readonly data_type!: string;
 }
 
 export class TableIndexCatalog extends Entity({
@@ -48,14 +48,14 @@ export class TableIndexCatalog extends Entity({
 	tableName: "pg_indexes",
 }) {
 	@Column({type:'text'})
-	readonly schemaname: string;
+	readonly schemaname!: string;
 
 	@Column({type:'text'})
-	readonly tablename: string;
+	readonly tablename!: string;
 
 	@Column({type:'text'})
-	readonly indexname: string;
+	readonly indexname!: string;
 
 	@Column({type:'text'})
-	readonly indexdef: string;
+	readonly indexdef!: string;
 }

@@ -9,12 +9,12 @@ import { Entity, Column, Index, sql } from '@karimsa/tinyorm';
 @Index(User)('idx_user_data_foo', sql`((data->>'foo')) WHERE name = 'test'`)
 export class User extends Entity({ schema: 'app', tableName: 'users' }) {
   @Column({ type: 'uuid' })
-  readonly id: string;
+  readonly id!: string;
 
   @Column({ type: 'text' })
-  readonly name: string;
+  readonly name!: string;
 
   @Column({ type: 'jsonb' })
-  readonly data: { foo: string };
+  readonly data!: { foo: string };
 }
 ```

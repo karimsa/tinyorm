@@ -13,11 +13,11 @@ describe("Migrations", () => {
 			tableName: "migration_test_user",
 		}) {
 			@Column({ type: "uuid" })
-			readonly id: string;
+			readonly id!: string;
 			@Column({ type: "text" })
-			readonly name: string;
+			readonly name!: string;
 			@Column({ type: "jsonb" })
-			readonly meta: { isCool: boolean };
+			readonly meta!: { isCool: boolean };
 		}
 
 		const pool = createConnectionPool({
@@ -96,11 +96,11 @@ describe("Migrations", () => {
 			tableName: "migration_test_user",
 		}) {
 			@Column({ type: "uuid" })
-			readonly id: string;
+			readonly id!: string;
 			@Column({ type: "text" })
-			readonly name: string;
+			readonly name!: string;
 			@Column({ type: "jsonb" })
-			readonly meta: { isCool: boolean };
+			readonly meta!: { isCool: boolean };
 		}
 
 		const pool = createConnectionPool({
@@ -125,11 +125,11 @@ describe("Migrations", () => {
 			tableName: "migration_test_user",
 		}) {
 			@Column({ type: "uuid" })
-			readonly id: string;
+			readonly id!: string;
 			@Column({ type: "text" })
-			readonly name: string;
+			readonly name!: string;
 			@Column({ type: "jsonb" })
-			readonly meta: { isCool: boolean };
+			readonly meta!: { isCool: boolean };
 		}
 
 		const queries = (await pool.getMigrationQueries(MigrationTestUserUpdated))!;
@@ -165,11 +165,11 @@ describe("Migrations", () => {
 				tableName: "migration_test_user",
 			}) {
 				@Column({ type: "uuid" })
-				readonly id: string;
+				readonly id!: string;
 				@Column({ type: "text" })
-				readonly name: string;
+				readonly name!: string;
 				@Column({ type: "jsonb" })
-				readonly meta: { isCool: boolean };
+				readonly meta!: { isCool: boolean };
 			}
 
 			pool = createConnectionPool({
@@ -224,11 +224,11 @@ describe("Migrations", () => {
 				tableName: "migration_test_user",
 			}) {
 				@Column({ type: "uuid" })
-				readonly id: string;
+				readonly id!: string;
 				@Column({ type: "uuid" })
-				readonly name: string;
+				readonly name!: string;
 				@Column({ type: "jsonb" })
-				readonly meta: { isCool: boolean };
+				readonly meta!: { isCool: boolean };
 			}
 
 			await expectMigrations(MigrationTestUserUpdated, [
@@ -252,11 +252,11 @@ describe("Migrations", () => {
 				tableName: "migration_test_user",
 			}) {
 				@Column({ type: "uuid" })
-				readonly id: string;
+				readonly id!: string;
 				@Column({ type: "text", defaultValue: sql`'test'` })
-				readonly name: string;
+				readonly name!: string;
 				@Column({ type: "jsonb" })
-				readonly meta: { isCool: boolean };
+				readonly meta!: { isCool: boolean };
 			}
 
 			await expectMigrations(MigrationTestUserUpdated, [
@@ -280,11 +280,11 @@ describe("Migrations", () => {
 				tableName: "migration_test_user",
 			}) {
 				@Column({ type: "uuid" })
-				readonly id: string;
+				readonly id!: string;
 				@Column({ type: "text", defaultValue: sql`'test'` })
-				readonly name: string;
+				readonly name!: string;
 				@Column({ type: "jsonb" })
-				readonly meta: { isCool: boolean };
+				readonly meta!: { isCool: boolean };
 			}
 
 			await expectMigrations(MigrationTestUserUpdated, [
@@ -315,11 +315,11 @@ describe("Migrations", () => {
 						tableName: "migration_test_user",
 					}) {
 						@Column({ type: "uuid" })
-						readonly id: string;
+						readonly id!: string;
 						@Column({ type: "text", defaultValue: sql`${'test2'}` })
-						readonly name: string;
+						readonly name!: string;
 						@Column({ type: "jsonb" })
-						readonly meta: { isCool: boolean };
+						readonly meta!: { isCool: boolean };
 					}
 
 					// Verify that the migration is correctly generated
@@ -364,11 +364,11 @@ describe("Migrations", () => {
 				tableName: "migration_test_user",
 			}) {
 				@Column({ type: "uuid" })
-				readonly id: string;
+				readonly id!: string;
 				@Column({ type: "text", previousName: "name" })
-				readonly foobar: string;
+				readonly foobar!: string;
 				@Column({ type: "jsonb" })
-				readonly meta: { isCool: boolean };
+				readonly meta!: { isCool: boolean };
 			}
 
 			await expectMigrations(MigrationTestUserUpdated, [

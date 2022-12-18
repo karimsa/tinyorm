@@ -119,7 +119,7 @@ export interface ColumnOptions {
 	 * ```ts
 	 * class User {
 	 * 	@Column({ type: "text" })
-	 * 	readonly id: string;
+	 * 	readonly id!: string;
 	 * }
 	 * ```
 	 */
@@ -130,7 +130,7 @@ export interface ColumnOptions {
 	 * ```ts
 	 * class User {
 	 * 	@Column({ type: "text", nullable: true })
-	 * 	readonly id: string | null;
+	 * 	readonly id!: string | null;
 	 * }
 	 * ```
 	 */
@@ -141,7 +141,7 @@ export interface ColumnOptions {
 	 * ```ts
 	 * class User {
 	 *  @Column({ type: "text", defaultValue: sql`uuid_generate_v4()` })
-	 *  readonly id: string;
+	 *  readonly id!: string;
 	 * }
 	 * ```
 	 */
@@ -152,7 +152,7 @@ export interface ColumnOptions {
 	 * ```ts
 	 * class User {
 	 *  @Column({ type: "text", previousName: "id" })
-	 *  readonly uuid: string;
+	 *  readonly uuid!: string;
 	 * }
 	 * ```
 	 */

@@ -7,10 +7,10 @@ const pool = createConnectionPool({});
 
 class User extends Entity({ schema: 'app', tableName: 'users' }) {
   @Column({ type: 'uuid' })
-  readonly id: string;
+  readonly id!: string;
 
   @Column({ type: 'text' })
-  readonly name: string;
+  readonly name!: string;
 }
 
 const suggestions = await pool.getMigrationQueries(User);

@@ -5,9 +5,9 @@ import { Entity, Column } from '@karimsa/tinyorm';
 
 export class User extends Entity({ schema: 'app', tableName: 'users' }) {
   @Column({ type: 'uuid' })
-  readonly id: string;
+  readonly id!: string;
 
   @Column({ type: 'text' })
-  readonly name: string;
+  readonly name!: string;
 }
 ```

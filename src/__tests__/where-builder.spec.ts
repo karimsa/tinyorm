@@ -9,14 +9,14 @@ import { expectQuery } from "./util";
 
 describe("WhereBuilder", () => {
 	class User extends Entity({ schema: "public", tableName: "users" }) {
-		id: string;
-		name: string;
-		status: "Active" | "Inactive";
+		id!: string;
+		name!: string;
+		status!: "Active" | "Inactive";
 	}
 	class Post extends Entity({ schema: "public", tableName: "posts" }) {
-		id: string;
-		author_id: string;
-		content: {
+		id!: string;
+		author_id!: string;
+		content!: {
 			type: "text" | "image";
 			value: string;
 			nestedObject: { hello: string; isBool: boolean };

@@ -49,11 +49,11 @@ class Migrations extends Entity({
 	tableName: "migrations",
 }) {
 	@Column({ type: "text" })
-	readonly name: string;
+	readonly name!: string;
 	@Column({ type: "timestamp without time zone" })
-	readonly started_at: Date;
+	readonly started_at!: Date;
 	@Column({ type: "timestamp without time zone", nullable: true })
-	readonly completed_at: Date | null;
+	readonly completed_at!: Date | null;
 }
 
 // rome-ignore lint/suspicious/noExplicitAny: This is a type-guard

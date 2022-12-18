@@ -211,15 +211,31 @@ export class QueryBuilder<
 		return this;
 	}
 
+	/**
+	 * Adds a custom raw query to the query's ORDER BY clause.
+	 * @param query query that specifies a column & direction to order by
+	 */
 	addRawOrderBy(query: PreparedQuery) {
 		this.#orderByValues.push(query);
 		return this;
 	}
 
+	/**
+	 * Adds a raw selection column to the query's ORDER BY clause.
+	 *
+	 * @param alias an alias for a raw field that was selected
+	 * @param direction sort direction
+	 */
 	addOrderBy<Alias extends string & keyof ResultShape>(
 		alias: Alias,
 		direction: "ASC" | "DESC",
 	): this;
+	/**
+	 * Adds a column from the selected entity to the query's ORDER BY clause.
+	 *
+	 * @param column a column name from the selected entity
+	 * @param direction sort direction
+	 */
 	addOrderBy<Column extends string & keyof Shape,>(
 		column: Column,
 		direction: "ASC" | "DESC",

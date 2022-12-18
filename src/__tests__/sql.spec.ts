@@ -133,9 +133,9 @@ describe("sql", () => {
 	it("should produce json paths", () => {
 		class TestClass extends Entity({ schema: "public", tableName: "test" }) {
 			@Column({ type: "text" })
-			readonly id: string;
+			readonly id!: string;
 			@Column({ type: "jsonb" })
-			readonly nested_data: {
+			readonly nested_data!: {
 				readonly foo: string;
 				readonly bar: {
 					readonly baz: string;
