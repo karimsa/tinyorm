@@ -76,7 +76,19 @@ function buildTextBlock(headingLevel, content) {
 			return [node.text];
 		}
 		if (node.kind === "inline-tag" && node.tag === "@link") {
-			return [`[${node.text}](/reference/${getPageFileName(node.text)})`];
+			const refNode = docNodes.find(
+				(refNode) =>
+					refNode.name === node.text && refNode.kindString !== "Reference",
+			);
+			if (!refNode) {
+				throw new Error(`Could not find node for @embedDocs: ${node.text}`);
+			}
+
+			return [
+				`[${node.text}](/reference/${getPageCategory(
+					refNode,
+				).toLowerCase()}/${getPageFileName(node.text)})`,
+			];
 		}
 		if (node.kind === "inline-tag" && node.tag === "@embedDocs") {
 			const refNode = docNodes.find(
