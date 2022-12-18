@@ -15,7 +15,9 @@ class TestUser extends Entity({ schema: "public", tableName: "test_user" }) {
 describe("InsertBuilder", () => {
 	it("should allow inserting new rows", () => {
 		expectQuery(
-			createInsertBuilder(TestUser)
+			createInsertBuilder()
+				.into(TestUser)
+				.withColumns(["id", "name", "meta"])
 				.addRows([
 					{
 						id: "6f0dea07-dbf6-4e6b-9e3b-8df47d278628",
@@ -37,7 +39,9 @@ describe("InsertBuilder", () => {
 		});
 	});
 	it("should allow return selected columns during inserts", () => {
-		const builder = createInsertBuilder(TestUser)
+		const builder = createInsertBuilder()
+			.into(TestUser)
+			.withColumns(["id", "name", "meta"])
 			.addRows([
 				{
 					id: "6f0dea07-dbf6-4e6b-9e3b-8df47d278628",

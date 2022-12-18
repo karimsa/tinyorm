@@ -609,7 +609,11 @@ export function createSingleWhereBuilder<Shape extends object>(
  * });
  *
  * // Generates: WHERE user.name = 'Karim' AND post.id = '1'
- * const whereQuery = where('user', 'name').Equals('Karim').andWhere('post', 'id').Equals('1').getQuery();
+ * const whereQuery = where('user', 'name')
+ * 	.Equals('Karim')
+ * 	.andWhere('post', 'id')
+ * 	.Equals('1')
+ * 	.getQuery();
  * ```
  *
  * For possible comparators, see {@link WhereQueryComparators}.

@@ -265,7 +265,9 @@ export class Connection
 	) {
 		// Create migration entry to avoid duplicate runs
 		try {
-			await createInsertBuilder(Migrations)
+			await createInsertBuilder()
+				.into(Migrations)
+				.withColumns(["name", "started_at", "completed_at"])
 				.addRows([
 					{
 						name,
