@@ -46,6 +46,28 @@ const config: DocsThemeConfig = {
 			titleTemplate: "%s - TinyORM",
 		};
 	},
+	navbar: {
+		extraContent: (
+			<>
+				<a href={`https://npmjs.org/@karimsa/tinyorm`}>
+					<img
+						src={
+							"https://img.shields.io/npm/v/@karimsa/tinyorm?label=latest&color=green"
+						}
+						alt='latest npm version'
+					/>
+				</a>
+				<a href={`https://npmjs.org/@karimsa/tinyorm/next`}>
+					<img
+						src={
+							"https://img.shields.io/npm/v/@karimsa/tinyorm/next?label=next"
+						}
+						alt='beta npm version'
+					/>
+				</a>
+			</>
+		),
+	},
 	footer: {
 		text: (
 			<span>
