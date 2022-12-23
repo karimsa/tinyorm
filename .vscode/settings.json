@@ -1,6 +1,8 @@
 {
     "editor.formatOnSave": true,
-		"editor.defaultFormatter": "rome.rome",
+    "editor.defaultFormatter": "rome.rome",
+    "prettier.enable": false,
+    "eslint.enable": false,
     "[typescript]": {
         "editor.codeActionsOnSave": {
             "source.organizeImports": true
