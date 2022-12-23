@@ -143,16 +143,30 @@ export class InsertBuilder<
  *
  * @param entity the entity to insert rows into
  */
-export function createInsertBuilder() {
-	return {
-		into<Shape>(entity: EntityFromShape<Shape>) {
-			return {
-				withColumns<InsertionKeys extends string & keyof Shape>(
-					insertionColumns: InsertionKeys[],
-				) {
-					return new InsertBuilder(entity, insertionColumns);
-				},
-			};
-		},
-	};
+export function createInsertBuilder<Shape>(
+	entity: EntityFromShape<Shape>,
+): InsertBuilder<Shape, string & keyof Shape, {}>;
+export function createInsertBuilder<
+	Shape,
+	InsertionKeys extends string & keyof Shape,
+>(
+	entity: EntityFromShape<Shape>,
+	insertionColumns: InsertionKeys[],
+): InsertBuilder<Shape, InsertionKeys, {}>;
+export function createInsertBuilder<Shape>(
+	entity: EntityFromShape<Shape>,
+	insertionColumns?: (string & keyof Shape)[],
+): InsertBuilder<Shape, string & keyof Shape, {}> {
+	if (!insertionColumns) {
+		const fieldSet = getEntityFields(entity);
+		if (fieldSet.size === 0) {
+			throw new Error(
+				`Cannot create insert builder from entity with no fields`,
+			);
+		}
+		return createInsertBuilder(entity, [
+			...fieldSet.keys(),
+		] as unknown[] as (string & keyof Shape)[]);
+	}
+	return new InsertBuilder(entity, insertionColumns);
 }
