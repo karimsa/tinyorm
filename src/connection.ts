@@ -1,3 +1,4 @@
+import snakeCase from "lodash.snakecase";
 import {
 	Client as PgClientBase,
 	Pool as PostgresPool,
@@ -8,8 +9,10 @@ import { EventEmitter } from "stream";
 import {
 	Column,
 	Entity,
+	EntityForeignKey,
 	EntityFromShape,
 	getEntityFields,
+	getEntityKeys,
 	Index,
 } from "./entity";
 import { createInsertBuilder } from "./insert-builder";
@@ -461,6 +464,11 @@ export class ConnectionPool {
 			);
 		}
 
+		const keySet = getEntityKeys(entity);
+		const primaryKey = keySet?.find((key) => key.type === "primary");
+		const foreignKeys = keySet?.filter(
+			(key): key is EntityForeignKey => key.type === "foreign",
+		);
 		const columns = [...fieldSet.entries()];
 
 		return sql`
@@ -468,7 +476,7 @@ export class ConnectionPool {
 				mustBeNew ? "" : "IF NOT EXISTS",
 			)} ${sql.getEntityRef(entity)}
 			${sql.brackets(
-				sql.join(
+				sql`${sql.join(
 					columns.map(([column, options], index) =>
 						sql.unescaped(
 							`"${column}" ${options.type} ${
@@ -476,7 +484,34 @@ export class ConnectionPool {
 							}${index === columns.length - 1 ? "" : ", "}`,
 						),
 					),
-				),
+				)}
+
+				${
+					primaryKey
+						? sql.unescaped(`,\nPRIMARY KEY ("${primaryKey.columnName}")`)
+						: sql``
+				}
+				${
+					foreignKeys && Number(foreignKeys.length) > 0
+						? sql.unescaped(
+								",\n" +
+									foreignKeys
+										.map(
+											(key) => `
+										CONSTRAINT fk_${snakeCase(
+											`${key.refEntity.tableName}_${key.refColumn}`,
+										)}
+										FOREIGN KEY ("${key.columnName}")
+										REFERENCES ${sql.getEntityRef(key.refEntity).value} ("${
+												key.refColumn
+											}")
+									`,
+										)
+										.join(",\n"),
+						  )
+						: sql``
+				}
+				`,
 			)}
 		`;
 	}

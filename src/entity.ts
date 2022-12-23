@@ -17,6 +17,7 @@ import { assertCase } from "./utils";
 const Registry = process.env.NODE_ENV === "test" ? Map : WeakMap;
 
 const fieldRegistry = new Registry<object, Map<string, ColumnStoredOptions>>();
+const keyRegistry = new Registry<object, EntityKey[]>();
 
 /**
  * Factory for creating base classes for entities.
@@ -183,6 +184,48 @@ export function Column(options: ColumnOptions) {
 	};
 }
 
+export interface EntityForeignKey {
+	type: "foreign";
+	columnName: string;
+	refEntity: EntityFromShape<unknown>;
+	refColumn: string;
+}
+export interface EntityPrimaryKey {
+	type: "primary";
+	columnName: string;
+}
+
+export type EntityKey = EntityPrimaryKey | EntityForeignKey;
+
+export function PrimaryKey() {
+	return function (target: object, propertyKey: string) {
+		assertCase("property name", propertyKey);
+
+		const keySet = keyRegistry.get(target) ?? [];
+		keyRegistry.set(target, keySet);
+		keySet.push({
+			type: "primary",
+			columnName: propertyKey,
+		});
+	};
+}
+
+export function ForeignKey<ForeignShape>(
+	foreignEntity: EntityFromShape<ForeignShape>,
+	foreignColumn: string & keyof ForeignShape,
+) {
+	return function (target: object, propertyKey: string) {
+		const keySet = keyRegistry.get(target) ?? [];
+		keyRegistry.set(target, keySet);
+		keySet.push({
+			type: "foreign",
+			columnName: propertyKey,
+			refEntity: foreignEntity,
+			refColumn: foreignColumn,
+		});
+	};
+}
+
 export type EntityFromShape<Shape> = {
 	schema: string;
 	tableName: string;
@@ -215,6 +258,10 @@ export function getEntityFields(entity: EntityFromShape<unknown>) {
 		);
 	}
 	return fieldSet;
+}
+
+export function getEntityKeys(entity: EntityFromShape<unknown>) {
+	return keyRegistry.get(entity.prototype);
 }
 
 export function getEntityIndices(entity: EntityFromShape<unknown>) {

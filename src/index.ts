@@ -7,7 +7,14 @@ export type {
 	Connection,
 	ConnectionPool,
 } from "./connection";
-export { Column, ColumnOptions, Entity, Index } from "./entity";
+export {
+	Column,
+	ColumnOptions,
+	Entity,
+	ForeignKey,
+	Index,
+	PrimaryKey,
+} from "./entity";
 export { createInsertBuilder } from "./insert-builder";
 export type { InsertBuilder } from "./insert-builder";
 export {

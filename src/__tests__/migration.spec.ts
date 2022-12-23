@@ -1,9 +1,37 @@
 import { describe, it } from "@jest/globals";
 import { Column, createJoinQueryBuilder, Entity, Index, sql } from "../";
 import { ConnectionPool, createConnectionPool } from "../connection";
-import { EntityFromShape } from "../entity";
+import { EntityFromShape, ForeignKey, PrimaryKey } from "../entity";
 import { SuggestedMigration } from "../migrations";
 import { expectQuery } from "./util";
+
+const expectMigrations = async (
+	pool: ConnectionPool,
+	updatedClass: EntityFromShape<unknown>,
+	expectedQueries: SuggestedMigration[],
+) => {
+	const actualQueries = await pool.getMigrationQueries(updatedClass);
+	if (!actualQueries) {
+		throw new Error(`Migration generation triggered a rollback`);
+	}
+
+	expect(actualQueries).toMatchObject(
+		expectedQueries.map((migration) => ({
+			...migration,
+			queries: migration.queries.map(() => expect.any(Object)),
+		})),
+	);
+
+	for (let i = 0; i < expectedQueries.length; i++) {
+		for (let j = 0; j < expectedQueries[i].queries.length; j++) {
+			expectQuery(actualQueries[i].queries[j]).toEqual(
+				expectedQueries[i].queries[j],
+			);
+		}
+	}
+
+	return actualQueries;
+};
 
 describe("Migrations", () => {
 	it("should setup table from scratch", async () => {
@@ -28,7 +56,7 @@ describe("Migrations", () => {
 		});
 
 		await pool.withTransaction(async (connection) => {
-			await connection.dropTable(MigrationTestUser);
+			await connection.dropTable(MigrationTestUser, { cascade: true });
 			await connection.initMigrations();
 			await connection.unsafe_resetAllMigrations();
 		});
@@ -111,7 +139,7 @@ describe("Migrations", () => {
 		});
 
 		await pool.withTransaction(async (connection) => {
-			await connection.dropTable(MigrationTestUser);
+			await connection.dropTable(MigrationTestUser, { cascade: true });
 			await connection.unsafe_resetAllMigrations();
 			await connection.executeMigration(
 				"test",
@@ -180,7 +208,7 @@ describe("Migrations", () => {
 			});
 
 			await pool.withTransaction(async (connection) => {
-				await connection.dropTable(MigrationTestUser);
+				await connection.dropTable(MigrationTestUser, { cascade: true });
 				await connection.unsafe_resetAllMigrations();
 				await connection.executeMigration(
 					"test",
@@ -192,31 +220,6 @@ describe("Migrations", () => {
 		afterAll(async () => {
 			await pool.destroy();
 		});
-
-		const expectMigrations = async (
-			updatedClass: EntityFromShape<unknown>,
-			expectedQueries: SuggestedMigration[],
-		) => {
-			const actualQueries = await pool.getMigrationQueries(updatedClass);
-			if (!actualQueries) {
-				throw new Error(`Migration generation triggered a rollback`);
-			}
-
-			expect(actualQueries).toMatchObject(
-				expectedQueries.map((migration) => ({
-					...migration,
-					queries: migration.queries.map(() => expect.any(Object)),
-				})),
-			);
-
-			for (let i = 0; i < expectedQueries.length; i++) {
-				for (let j = 0; j < expectedQueries[i].queries.length; j++) {
-					expectQuery(actualQueries[i].queries[j]).toEqual(
-						expectedQueries[i].queries[j],
-					);
-				}
-			}
-		};
 
 		it("should handle column data type update", async () => {
 			class MigrationTestUserUpdated extends Entity({
@@ -231,7 +234,7 @@ describe("Migrations", () => {
 				readonly meta!: { isCool: boolean };
 			}
 
-			await expectMigrations(MigrationTestUserUpdated, [
+			await expectMigrations(pool, MigrationTestUserUpdated, [
 				{
 					reason: "Column Type Updated",
 					queries: [
@@ -259,7 +262,7 @@ describe("Migrations", () => {
 				readonly meta!: { isCool: boolean };
 			}
 
-			await expectMigrations(MigrationTestUserUpdated, [
+			await expectMigrations(pool, MigrationTestUserUpdated, [
 				{
 					reason: "Column Default Updated",
 					queries: [
@@ -287,7 +290,7 @@ describe("Migrations", () => {
 				readonly meta!: { isCool: boolean };
 			}
 
-			await expectMigrations(MigrationTestUserUpdated, [
+			await expectMigrations(pool, MigrationTestUserUpdated, [
 				{
 					reason: "Column Default Updated",
 					queries: [
@@ -323,7 +326,7 @@ describe("Migrations", () => {
 					}
 
 					// Verify that the migration is correctly generated
-					await expectMigrations(MigrationTestUserUpdated2, [
+					await expectMigrations(pool, MigrationTestUserUpdated2, [
 						{
 							reason: "Column Default Updated",
 							queries: [
@@ -343,7 +346,7 @@ describe("Migrations", () => {
 			).rejects.toThrowError(/rollback/);
 
 			// Verify that the same migration is correctly generated, so the state has not applied
-			await expectMigrations(MigrationTestUserUpdated, [
+			await expectMigrations(pool, MigrationTestUserUpdated, [
 				{
 					reason: "Column Default Updated",
 					queries: [
@@ -371,7 +374,7 @@ describe("Migrations", () => {
 				readonly meta!: { isCool: boolean };
 			}
 
-			await expectMigrations(MigrationTestUserUpdated, [
+			await expectMigrations(pool, MigrationTestUserUpdated, [
 				{
 					reason: "Column Renamed",
 					queries: [
@@ -384,6 +387,113 @@ describe("Migrations", () => {
 					],
 				},
 			]);
+		});
+	});
+	describe("Entity keys", () => {
+		const pool = createConnectionPool({
+			port: 5432,
+			user: "postgres",
+			password: "postgres",
+			database: "postgres",
+		});
+
+		beforeAll(async () => {
+			await pool.withTransaction(async (connection) => {
+				await connection.unsafe_resetAllMigrations();
+			});
+		});
+
+		afterAll(async () => {
+			await pool.destroy();
+		});
+
+		it("should migrate primary and foreign keys", async () => {
+			class MigrationTestUser extends Entity({
+				schema: "public",
+				tableName: "migration_test_user",
+			}) {
+				@PrimaryKey()
+				@Column({ type: 'uuid' })
+				readonly id!: string;
+				@Column({ type: 'text' })
+				readonly name!: string;
+				@Column({ type: 'jsonb' })
+				readonly meta!: { isCool: boolean };
+			}
+
+			class TestPost extends Entity({
+				schema: "public",
+				tableName: "test_post",
+			}) {
+				@PrimaryKey()
+				@Column({ type: 'uuid' })
+				readonly id!: string;
+				@ForeignKey(MigrationTestUser, 'id')
+				@Column({ type: 'uuid' })
+				readonly user_id!: string;
+			}
+
+			await pool.withTransaction(async (connection) => {
+				await connection.dropTable(TestPost);
+				await connection.dropTable(MigrationTestUser);
+			});
+			const initUserMigrations = await expectMigrations(
+				pool,
+				MigrationTestUser,
+				[
+					{
+						reason: "Missing Table",
+						queries: [
+							{
+								text: `
+									CREATE TABLE IF NOT EXISTS "public"."migration_test_user" (
+										"id" uuid NOT NULL,
+										"name" text NOT NULL,
+										"meta" jsonb NOT NULL,
+
+										PRIMARY KEY ("id")
+									)
+								`,
+								values: [],
+							},
+						],
+					},
+				],
+			);
+			await pool.withConnection((connection) =>
+				connection.executeMigration(
+					"init-user",
+					initUserMigrations.flatMap((m) => m.queries),
+				),
+			);
+
+			const initPostMigrations = await expectMigrations(pool, TestPost, [
+				{
+					reason: "Missing Table",
+					queries: [
+						{
+							text: `
+								CREATE TABLE IF NOT EXISTS "public"."test_post" (
+									"id" uuid NOT NULL,
+									"user_id" uuid NOT NULL,
+
+									PRIMARY KEY ("id"),
+									CONSTRAINT fk_migration_test_user_id
+									FOREIGN KEY ("user_id")
+									REFERENCES "public"."migration_test_user" ("id")
+								)
+							`,
+							values: [],
+						},
+					],
+				},
+			]);
+			await pool.withConnection((connection) =>
+				connection.executeMigration(
+					"init-post",
+					initPostMigrations.flatMap((m) => m.queries),
+				),
+			);
 		});
 	});
 });
