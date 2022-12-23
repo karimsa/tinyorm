@@ -180,8 +180,17 @@ export class Connection
 	 * @param entity any tinyorm entity
 	 * @returns promise that resolves with void when the table has been dropped
 	 */
-	async dropTable(entity: EntityFromShape<unknown>) {
-		await this.query(sql.finalize(sql`DROP TABLE IF EXISTS ${entity}`));
+	async dropTable(
+		entity: EntityFromShape<unknown>,
+		{ cascade }: { cascade?: boolean } = {},
+	) {
+		await this.query(
+			sql.finalize(
+				sql`DROP TABLE IF EXISTS ${entity} ${sql.asUnescaped(
+					cascade ? "CASCADE" : "",
+				)}`,
+			),
+		);
 	}
 
 	/**
