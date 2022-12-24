@@ -147,6 +147,8 @@ export interface ColumnOptions {
 	 *  readonly id!: string;
 	 * }
 	 * ```
+	 *
+	 * *Note: See [here](https://www.postgresql.org/docs/current/functions-uuid.html) for more information about UUID generation in postgres.*
 	 */
 	defaultValue?: PreparedQuery;
 	/**
