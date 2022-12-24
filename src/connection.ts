@@ -313,6 +313,7 @@ export class Connection
 			this.emit("migrationCompleted", { name, queries });
 		} catch (err) {
 			this.emit("migrationFailed", { name, queries, error: err });
+			throw err;
 		}
 	}
 }
