@@ -10,7 +10,9 @@ const expectMigrations = async (
 	updatedClass: EntityFromShape<unknown>,
 	expectedQueries: SuggestedMigration[],
 ) => {
-	const actualQueries = await pool.getMigrationQueries(updatedClass);
+	const actualQueries = await pool.withTransaction((tx) =>
+		tx.getMigrationQueries(updatedClass),
+	);
 	if (!actualQueries) {
 		throw new Error(`Migration generation triggered a rollback`);
 	}
@@ -74,7 +76,9 @@ describe("Migrations", () => {
 			).rejects.toThrowError(/relation.*does not exist/);
 		});
 
-		const queries = (await pool.getMigrationQueries(MigrationTestUser))!;
+		const queries = (await pool.withTransaction((tx) =>
+			tx.getMigrationQueries(MigrationTestUser),
+		))!;
 		expect(queries).toMatchObject([
 			{
 				reason: "Missing Table",
@@ -108,7 +112,7 @@ describe("Migrations", () => {
 
 		expect(queries).toHaveLength(2);
 
-		await pool.executeMigration("test", queries);
+		await pool.withTransaction((tx) => tx.executeMigration("test", queries));
 
 		await pool.withClient(async (client) => {
 			await expect(
@@ -165,7 +169,9 @@ describe("Migrations", () => {
 			readonly meta!: { isCool: boolean };
 		}
 
-		const queries = (await pool.getMigrationQueries(MigrationTestUserUpdated))!;
+		const queries = (await pool.withTransaction((tx) =>
+			tx.getMigrationQueries(MigrationTestUserUpdated),
+		))!;
 		expect(queries).toMatchObject([
 			{
 				reason: "Index Updated",

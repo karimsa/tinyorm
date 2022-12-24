@@ -418,33 +418,6 @@ export class ConnectionPool {
 	}
 
 	/**
-	 * Compares the current entity definition with the table in the database and returns a list of
-	 * queries that need to be run to bring the table in sync with the entity definition.
-	 *
-	 * @param entity any tinyorm entity
-	 * @returns a set of suggested migrations recommended to bring the table in sync with the entity
-	 */
-	async getMigrationQueries(entity: EntityFromShape<unknown>) {
-		return this.withTransaction(async (connection) => {
-			return connection.getMigrationQueries(entity);
-		});
-	}
-
-	/**
-	 * Runs a migration, and fails if it has already been run.
-	 * @param name the name of the migration to run (recorded in the migrations table)
-	 * @param queries set of queries considered to be part of the migration
-	 */
-	async executeMigration(
-		name: string,
-		queries: (FinalizedQuery | SuggestedMigration)[],
-	) {
-		return this.withTransaction(async (connection) => {
-			return connection.executeMigration(name, queries);
-		});
-	}
-
-	/**
 	 * Closes the connection pool, and all of its clients.
 	 * @returns
 	 */
