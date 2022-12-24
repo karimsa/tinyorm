@@ -40,7 +40,7 @@ describe("Migrations", () => {
 			schema: "public",
 			tableName: "migration_test_user",
 		}) {
-			@Column({ type: "uuid" })
+			@Column({ type: "uuid", defaultValue: sql`uuid_generate_v4()` })
 			readonly id!: string;
 			@Column({ type: "text" })
 			readonly name!: string;
@@ -55,6 +55,11 @@ describe("Migrations", () => {
 			database: "postgres",
 		});
 
+		await pool.withClient(async (client) => {
+			await client.query(
+				sql.finalize(sql`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`),
+			);
+		});
 		await pool.withTransaction(async (connection) => {
 			await connection.dropTable(MigrationTestUser, { cascade: true });
 			await connection.initMigrations();
@@ -84,7 +89,7 @@ describe("Migrations", () => {
 		expectQuery(queries[0].queries[0]).toEqual({
 			text: `
 				CREATE TABLE IF NOT EXISTS "public"."migration_test_user" (
-					"id" uuid NOT NULL,
+					"id" uuid NOT NULL DEFAULT uuid_generate_v4(),
 					"name" text NOT NULL,
 					"meta" jsonb NOT NULL
 				)

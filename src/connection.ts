@@ -477,11 +477,15 @@ export class ConnectionPool {
 			${sql.brackets(
 				sql`${sql.join(
 					columns.map(([column, options], index) =>
-						sql.unescaped(
-							`"${column}" ${options.type} ${
-								options.nullable ? "" : "NOT NULL"
-							}${index === columns.length - 1 ? "" : ", "}`,
-						),
+						sql.join([
+							sql.unescaped(`"${column}" `),
+							sql.unescaped(`${options.type} `),
+							sql.unescaped(options.nullable ? "" : "NOT NULL "),
+							options.defaultValue
+								? sql`DEFAULT ${options.defaultValue}`
+								: sql``,
+							sql.unescaped(index === columns.length - 1 ? "" : ", "),
+						]),
 					),
 				)}
 
