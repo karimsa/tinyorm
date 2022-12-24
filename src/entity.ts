@@ -98,7 +98,7 @@ export function Index<Shape>(
 	};
 }
 
-type PostgresColumnType =
+export type PostgresColumnType =
 	| PostgresStringColumnType
 	| PostgresBooleanColumnType
 	| PostgresDateColumnType

@@ -1,9 +1,18 @@
 import { Connection, ConnectionPool, wrapClient } from "./connection";
 import { EntityFromShape, getEntityFields } from "./entity";
-import { PostgresValueType, PreparedQuery, sql } from "./queries";
+import {
+	PreparedQuery,
+	QueryParameterType,
+	serializePostgresValue,
+	sql,
+} from "./queries";
 
 import pick from "lodash.pick";
 import { PoolClient as PostgresClient } from "pg";
+
+type InsertionShape<Shape, InsertionKeys> = {
+	[key in keyof Shape & InsertionKeys]: Shape[key] | QueryParameterType;
+};
 
 export class InsertBuilder<
 	Shape,
@@ -11,7 +20,7 @@ export class InsertBuilder<
 	ResultShape,
 > {
 	readonly #entity: EntityFromShape<Shape>;
-	readonly #rows: Partial<Shape>[] = [];
+	readonly #rows: PreparedQuery[] = [];
 	#insertionColumns: string[] = [];
 	#returningColumns: string[] = [];
 
@@ -36,18 +45,45 @@ export class InsertBuilder<
 		}
 	}
 
-	addRows(rows: Pick<Shape, InsertionKeys>[]) {
-		for (const row of rows) {
-			for (const column of this.#insertionColumns) {
-				if (!{}.hasOwnProperty.call(row, column)) {
-					throw new Error(
-						`Cannot insert row, it is missing column "${column}"`,
-					);
-				}
-			}
-		}
-		this.#rows.push(...(rows as unknown[] as Shape[]));
+	addRows(rows: InsertionShape<Shape, InsertionKeys>[]) {
+		const fieldSet = getEntityFields(this.#entity);
 
+		this.addRawRows(
+			rows.map((row) =>
+				sql.brackets(
+					sql.join(
+						this.#insertionColumns.map((column, index) => {
+							const columnOptions = fieldSet.get(column);
+							if (!columnOptions) {
+								throw new Error(`Unrecognized column "${column}"`);
+							}
+							if (!{}.hasOwnProperty.call(row, column)) {
+								throw new Error(
+									`Cannot insert row, it is missing column "${column}"`,
+								);
+							}
+
+							const serializedValue = serializePostgresValue(
+								(row as unknown as Record<string, unknown>)[column],
+							);
+
+							return sql`${sql.asCastedValue(
+								serializedValue,
+								columnOptions.type,
+							)}${sql.asUnescaped(
+								index === this.#insertionColumns.length - 1 ? "" : ", ",
+							)}`;
+						}),
+					),
+				),
+			),
+		);
+
+		return this;
+	}
+
+	addRawRows(rows: PreparedQuery[]) {
+		this.#rows.push(...rows);
 		return this;
 	}
 
@@ -73,24 +109,7 @@ export class InsertBuilder<
 				),
 			)}
 			VALUES
-			${sql.join(
-				this.#rows.map((row) =>
-					sql.brackets(
-						sql.join(
-							this.#insertionColumns.map(
-								(column, index) =>
-									sql`${
-										(row as unknown as Record<string, unknown>)[
-											column
-										] as unknown as PostgresValueType
-									}${sql.asUnescaped(
-										index === this.#insertionColumns.length - 1 ? "" : ", ",
-									)}`,
-							),
-						),
-					),
-				),
-			)}
+			${sql.join(this.#rows)}
 			${
 				this.#returningColumns.length === 0
 					? sql``

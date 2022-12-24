@@ -25,8 +25,8 @@ describe("InsertBuilder", () => {
 				.getQuery(),
 		).toEqual({
 			text: `
-                INSERT INTO "public"."test_user" ("id", "name", "meta")
-                VALUES (uuid_generate_v4(), $2::text, $3::jsonb)
+                INSERT INTO "public"."test_user" ("name", "meta")
+                VALUES ($1::text, $2::jsonb)
             `,
 			values: ["test", `{"isCool":true}`],
 		});
@@ -46,7 +46,7 @@ describe("InsertBuilder", () => {
 		expectQuery(builder.getQuery()).toEqual({
 			text: `
                 INSERT INTO "public"."test_user" ("id", "name", "meta")
-                VALUES ($1::text, $2::text, $3::jsonb)
+                VALUES ($1::uuid, $2::text, $3::jsonb)
 				RETURNING ("id")
             `,
 			values: [

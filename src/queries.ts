@@ -1,5 +1,5 @@
 import * as util from "util";
-import { EntityFromShape, isEntity } from "./entity";
+import { EntityFromShape, isEntity, PostgresColumnType } from "./entity";
 
 /**
  * Defines non-array and non-null JS types that are allowed to be passed as query parameters.
@@ -77,10 +77,10 @@ export interface FinalizedQuery {
 
 const kUnescapedVariable = Symbol("unescapedVariable");
 
-type UnescapedVariable = {
+export interface UnescapedVariable {
 	type: typeof kUnescapedVariable;
 	value: string;
-};
+}
 
 type QueryVariable =
 	| {
@@ -439,6 +439,19 @@ export interface SqlHelpers {
 	asJSONB(value: string | object): QueryVariable;
 
 	/**
+	 * Marks a value as a custom postgres type.
+	 * @param value any serializable postgres value
+	 * @param type casted value type
+	 */
+	asCastedValue(
+		value:
+			| Exclude<PostgresSimpleValueType, Date | object>
+			| Exclude<PostgresSimpleValueType, Date | object>[]
+			| null,
+		type: PostgresColumnType | `${PostgresColumnType}[]`,
+	): QueryVariable;
+
+	/**
 	 * Builds an entity reference for aliased entities. This is useful for joins.
 	 *
 	 * ```ts
@@ -580,6 +593,13 @@ const sqlHelpers: SqlHelpers = {
 		return getQueryVariable(value, "jsonb");
 	},
 
+	asCastedValue: (value, type) =>
+		({
+			type,
+			isArray: type.endsWith("[]"),
+			value,
+		}) as unknown as QueryVariable,
+
 	getEntityRef: (entity, alias) => {
 		if (alias) {
 			return sql.asUnescaped(
@@ -664,6 +684,14 @@ const sqlHelpers: SqlHelpers = {
 	},
 };
 
+export type QueryParameterType =
+	| EntityFromShape<unknown>
+	| PostgresValueType
+	| PreparedQuery
+	| QueryVariable
+	| UnescapedVariable
+	| undefined;
+
 /**
  * Helper that allows you to write SQL prepared queries as template strings. All template string
  * parameters are automatically escaped as SQL parameters. This function also contains a set of
@@ -684,14 +712,7 @@ const sqlHelpers: SqlHelpers = {
 export const sql = Object.assign(
 	(
 		templateStrings: ReadonlyArray<string>,
-		...parameters: (
-			| EntityFromShape<unknown>
-			| PostgresValueType
-			| PreparedQuery
-			| QueryVariable
-			| UnescapedVariable
-			| undefined
-		)[]
+		...parameters: QueryParameterType[]
 	): PreparedQuery => {
 		const preparedQuery: PreparedQuery = {
 			text: [templateStrings[0]],
@@ -756,27 +777,38 @@ export function isPreparedQuery(query: unknown): query is PreparedQuery {
 	);
 }
 
-function serializePostgresValue(value: unknown) {
-	if (value === null) {
-		return "null";
+export function serializePostgresValue(value: unknown) {
+	if (
+		value === null ||
+		typeof value === "boolean" ||
+		typeof value === "number" ||
+		typeof value === "string"
+	) {
+		return value;
 	}
 	if (value instanceof Date) {
-		return `'${value.toISOString()}'`;
+		return value.toISOString();
 	}
 	if (typeof value === "object") {
 		return JSON.stringify(value);
 	}
-	if (typeof value === "number" || typeof value === "boolean") {
-		return value.toString();
-	}
-	if (typeof value === "string") {
-		return `'${value.replace(/'/g, "\\'")}'`;
-	}
 	throw new Error(
 		`Cannot serialize value: ${util.inspect(
 			value,
-		)} (use sql.asUnescaped to pass raw values))`,
+		)} (use sql.asCastedValue or sql.asUnescaped))`,
 	);
+}
+
+function serializePostgresValueAsString(value: unknown) {
+	if (value === null) {
+		return "null";
+	}
+
+	const serialized = serializePostgresValue(value);
+	if (typeof serialized === "string") {
+		return `'${serialized}'`;
+	}
+	return String(serialized);
 }
 
 export function unsafeFlattenQuery(query: PreparedQuery): PreparedQuery {
@@ -786,7 +818,7 @@ export function unsafeFlattenQuery(query: PreparedQuery): PreparedQuery {
 			if (isUnescapedVariable(param)) {
 				return param;
 			}
-			return sql.asUnescaped(serializePostgresValue(param.value));
+			return sql.asUnescaped(serializePostgresValueAsString(param.value));
 		}),
 	});
 	return {
