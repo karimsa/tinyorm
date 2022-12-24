@@ -96,7 +96,7 @@ export class InsertBuilder<
 		>;
 	}
 
-	getPreparedQuery(): PreparedQuery {
+	getQuery(): PreparedQuery {
 		if (this.#rows.length === 0) {
 			throw new Error(`Cannot insert zero rows`);
 		}
@@ -120,10 +120,6 @@ export class InsertBuilder<
 					  )}`
 			}
 		`;
-	}
-
-	getQuery() {
-		return sql.finalize(this.getPreparedQuery());
 	}
 
 	async execute(

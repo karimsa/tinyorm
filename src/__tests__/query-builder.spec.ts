@@ -73,7 +73,12 @@ describe("QueryBuilder", () => {
 	describe("Select", () => {
 		it("should allow single entity queries", async () => {
 			expectQuery(
-				createSimpleQueryBuilder().from(User).select(["id", "name"]).getQuery(),
+				sql.finalize(
+					createSimpleQueryBuilder()
+						.from(User)
+						.select(["id", "name"])
+						.getQuery(),
+				),
 			).toEqual({
 				text: `SELECT "id", "name" FROM "app"."user"`,
 				values: [],

@@ -18,7 +18,7 @@ import {
 import { createInsertBuilder } from "./insert-builder";
 import { debug } from "./logger";
 import { MigrationGenerator, SuggestedMigration } from "./migrations";
-import { FinalizedQuery, sql } from "./queries";
+import { FinalizedQuery, isPreparedQuery, PreparedQuery, sql } from "./queries";
 import { createEventEmitter, TypeSafeEventEmitter } from "./utils";
 import {
 	createSingleWhereBuilder,
@@ -120,7 +120,13 @@ export class Connection
 	 * @param query any FinalizedQuery object
 	 * @returns set of resulting rows (not validated)
 	 */
-	async query(query: FinalizedQuery) {
+	async query(
+		query: FinalizedQuery | PreparedQuery,
+	): Promise<{ rows: unknown[]; rowCount: number }> {
+		if (isPreparedQuery(query)) {
+			return this.query(sql.finalize(query));
+		}
+
 		if (!query.text) {
 			throw new Error(`Cannot run empty query`);
 		}
@@ -162,9 +168,7 @@ export class Connection
 	 * @returns promise that resolves with void when the table has been created
 	 */
 	async createNewTable(entity: EntityFromShape<unknown>) {
-		await this.query(
-			sql.finalize(ConnectionPool.getCreateTableQuery(entity, true)),
-		);
+		await this.query(ConnectionPool.getCreateTableQuery(entity, true));
 	}
 
 	/**
@@ -173,9 +177,7 @@ export class Connection
 	 * @returns promise that resolves with void when the table has been created
 	 */
 	async createTable(entity: EntityFromShape<unknown>) {
-		await this.query(
-			sql.finalize(ConnectionPool.getCreateTableQuery(entity, false)),
-		);
+		await this.query(ConnectionPool.getCreateTableQuery(entity, false));
 	}
 
 	/**
@@ -188,11 +190,9 @@ export class Connection
 		{ cascade }: { cascade?: boolean } = {},
 	) {
 		await this.query(
-			sql.finalize(
-				sql`DROP TABLE IF EXISTS ${entity} ${sql.asUnescaped(
-					cascade ? "CASCADE" : "",
-				)}`,
-			),
+			sql`DROP TABLE IF EXISTS ${entity} ${sql.asUnescaped(
+				cascade ? "CASCADE" : "",
+			)}`,
 		);
 	}
 
@@ -207,7 +207,7 @@ export class Connection
 		whereBuilder: (where: SingleWhereQueryBuilder<Shape>) => WhereQueryBuilder,
 	) {
 		const { rowCount } = await this.query(
-			sql.finalize(ConnectionPool.getDeleteFromQuery(entity, whereBuilder)),
+			ConnectionPool.getDeleteFromQuery(entity, whereBuilder),
 		);
 		return rowCount;
 	}

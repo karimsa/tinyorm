@@ -1,12 +1,7 @@
 import { PoolClient as PostgresClient } from "pg";
 import PostgresQueryCursor from "pg-cursor";
 import { ZodSchema } from "zod";
-import {
-	Connection,
-	ConnectionPool,
-	QueryError,
-	wrapClient,
-} from "./connection";
+import { Connection, ConnectionPool, wrapClient } from "./connection";
 import { EntityFromShape, getEntityFields } from "./entity";
 import {
 	FinalizedQuery,
@@ -46,13 +41,7 @@ function getPaginationQuery({
 abstract class BaseQueryBuilder<ResultShape> {
 	abstract buildOne(row: null): null;
 	abstract buildOne(row: unknown): ResultShape;
-	abstract getPreparedQuery(
-		paginationOptions?: PaginationOptions,
-	): PreparedQuery;
-
-	getQuery(paginationOptions?: PaginationOptions): FinalizedQuery {
-		return sql.finalize(this.getPreparedQuery(paginationOptions));
-	}
+	abstract getQuery(paginationOptions?: PaginationOptions): PreparedQuery;
 
 	buildMany(rows: unknown[]): ResultShape[] {
 		return rows
@@ -62,7 +51,7 @@ abstract class BaseQueryBuilder<ResultShape> {
 
 	private async executeQuery(
 		client: PostgresClient | Connection | ConnectionPool,
-		query: FinalizedQuery,
+		query: FinalizedQuery | PreparedQuery,
 	): Promise<{ rows: unknown[]; rowCount: number }> {
 		if (client instanceof ConnectionPool) {
 			return client.withConnection((connection) =>
@@ -70,24 +59,13 @@ abstract class BaseQueryBuilder<ResultShape> {
 			);
 		}
 
-		const connection = wrapClient(client);
-
-		try {
-			return await connection.query(query);
-		} catch (err: unknown) {
-			throw new QueryError(
-				err instanceof Error ? String(err.message) : "Query failed",
-				query,
-				err,
-			);
-		}
+		return wrapClient(client).query(query);
 	}
 
 	async getOne(
 		client: PostgresClient | Connection | ConnectionPool,
 	): Promise<ResultShape | null> {
-		const query = this.getQuery();
-		query.text += " LIMIT 1";
+		const query = sql.suffixQuery(this.getQuery(), ` LIMIT 1`);
 
 		const { rows } = await this.executeQuery(client, query);
 		if (rows.length === 0) {
@@ -134,7 +112,7 @@ abstract class BaseQueryBuilder<ResultShape> {
 				? clientOrConnection.client
 				: clientOrConnection;
 
-		const query = this.getQuery();
+		const query = sql.finalize(this.getQuery());
 		const cursor = client.query(
 			new PostgresQueryCursor(query.text, query.values),
 		);
@@ -310,7 +288,7 @@ export class SimpleQueryBuilder<
 		return this;
 	}
 
-	getPreparedQuery(paginationOptions?: PaginationOptions): PreparedQuery {
+	getQuery(paginationOptions?: PaginationOptions): PreparedQuery {
 		if (this.#selectedFields.length === 0) {
 			throw new Error(`No fields selected, cannot perform select query`);
 		}
@@ -646,7 +624,7 @@ export class JoinedQueryBuilder<
 		return this;
 	}
 
-	getPreparedQuery(paginationOptions?: PaginationOptions): PreparedQuery {
+	getQuery(paginationOptions?: PaginationOptions): PreparedQuery {
 		const selectedFields = this.#getSelectedFields();
 		const selectedComputedFields = this.#getSelectedComputedFields();
 

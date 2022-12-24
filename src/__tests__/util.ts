@@ -1,5 +1,10 @@
 import { format } from "sql-formatter";
-import { FinalizedQuery } from "../queries";
+import {
+	FinalizedQuery,
+	isPreparedQuery,
+	PreparedQuery,
+	sql,
+} from "../queries";
 
 const pretty = (text: string) => {
 	try {
@@ -9,13 +14,21 @@ const pretty = (text: string) => {
 	}
 };
 
-export function expectQuery(given: FinalizedQuery) {
+export function expectQuery(given: FinalizedQuery | PreparedQuery) {
 	return {
-		toEqual(expected: FinalizedQuery) {
-			expect(given).toBeDefined();
-			expect({ text: pretty(given.text), values: given.values }).toMatchObject({
-				text: pretty(expected.text),
-				values: expected.values,
+		toEqual(expected: FinalizedQuery | PreparedQuery) {
+			const finalGiven = isPreparedQuery(given) ? sql.finalize(given) : given;
+			const finalExpected = isPreparedQuery(expected)
+				? sql.finalize(expected)
+				: expected;
+
+			expect(finalGiven).toBeDefined();
+			expect({
+				text: pretty(finalGiven.text),
+				values: finalGiven.values,
+			}).toMatchObject({
+				text: pretty(finalExpected.text),
+				values: finalExpected.values,
 			});
 		},
 	};
