@@ -11,12 +11,10 @@ import {
 } from "./queries";
 import { assertCase } from "./utils";
 import {
-	AndWhereQueryBuilder,
 	createJoinWhereBuilder,
-	createSingleWhereBuilder,
-	JoinWhereQueryBuilder,
-	OrWhereQueryBuilder,
-	SingleWhereQueryBuilder,
+	createSimpleWhereBuilder,
+	JoinWhereBuilder,
+	SimpleWhereBuilder,
 } from "./where-builder";
 
 /**
@@ -182,22 +180,9 @@ export class SimpleQueryBuilder<
 		>;
 	}
 
-	addWhereRaw(query: PreparedQuery) {
-		this.#whereQueries.push(query);
-		return this;
-	}
-
-	addWhere(
-		whereBuilder: (
-			where: SingleWhereQueryBuilder<Shape>,
-		) =>
-			| AndWhereQueryBuilder<SingleWhereQueryBuilder<Shape>>
-			| OrWhereQueryBuilder<SingleWhereQueryBuilder<Shape>>,
-	) {
+	addWhere(whereBuilder: (where: SimpleWhereBuilder<Shape>) => PreparedQuery) {
 		this.#whereQueries.push(
-			whereBuilder(
-				createSingleWhereBuilder(this.#targetFromEntity),
-			).getConditionQuery(),
+			whereBuilder(createSimpleWhereBuilder(this.#targetFromEntity)),
 		);
 		return this;
 	}
@@ -517,20 +502,9 @@ export class JoinedQueryBuilder<
 		return selectedFieldQueries;
 	}
 
-	addWhereRaw(query: PreparedQuery) {
-		this.#whereQueries.push(query);
-		return this;
-	}
-
-	addWhere(
-		whereBuilder: (
-			where: JoinWhereQueryBuilder<Shapes>,
-		) =>
-			| AndWhereQueryBuilder<JoinWhereQueryBuilder<Shapes>>
-			| OrWhereQueryBuilder<JoinWhereQueryBuilder<Shapes>>,
-	) {
+	addWhere(whereBuilder: (where: JoinWhereBuilder<Shapes>) => PreparedQuery) {
 		this.#whereQueries.push(
-			whereBuilder(createJoinWhereBuilder(this.#includedEntites)).getQuery(),
+			whereBuilder(createJoinWhereBuilder(this.#includedEntites)),
 		);
 		return this;
 	}
@@ -648,7 +622,11 @@ export class JoinedQueryBuilder<
 			}
 			FROM ${sql.getEntityRef(this.#targetFromEntity, this.#targetEntityAlias)}
 			${this.#joins.length > 0 ? sql.join(this.#joins) : sql``}
-			${this.#whereQueries.length > 0 ? sql.join(this.#whereQueries) : sql``}
+			${
+				this.#whereQueries.length > 0
+					? sql`WHERE ${sql.join(this.#whereQueries)}`
+					: sql``
+			}
 			${this.#getGroupBy()}
 			${this.#getOrderBy()}
 			${getPaginationQuery(paginationOptions)}

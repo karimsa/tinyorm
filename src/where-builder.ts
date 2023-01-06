@@ -239,6 +239,10 @@ export function createSimpleWhereBuilder<Shape>(
 	return Object.assign(openWhere, whereUtils);
 }
 
+export type SimpleWhereBuilder<Shape> = ReturnType<
+	typeof createSimpleWhereBuilder<Shape>
+>;
+
 export function createJoinWhereBuilder<Shapes extends Record<string, object>>(
 	knownEntities:
 		| Map<string & keyof Shapes, EntityFromShape<unknown>>
@@ -282,3 +286,6 @@ export function createJoinWhereBuilder<Shapes extends Record<string, object>>(
 
 	return Object.assign(openWhere, whereUtils);
 }
+
+export type JoinWhereBuilder<Shapes extends Record<string, object>> =
+	ReturnType<typeof createJoinWhereBuilder<Shapes>>;

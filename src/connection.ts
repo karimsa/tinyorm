@@ -20,11 +20,7 @@ import { debug } from "./logger";
 import { MigrationGenerator, SuggestedMigration } from "./migrations";
 import { FinalizedQuery, isPreparedQuery, PreparedQuery, sql } from "./queries";
 import { createEventEmitter, TypeSafeEventEmitter } from "./utils";
-import {
-	createSingleWhereBuilder,
-	SingleWhereQueryBuilder,
-	WhereQueryBuilder,
-} from "./where-builder";
+import { createSimpleWhereBuilder, SimpleWhereBuilder } from "./where-builder";
 
 /**
  * This error is thrown when a query fails.
@@ -204,7 +200,7 @@ export class Connection
 	 */
 	async deleteFrom<Shape extends object>(
 		entity: EntityFromShape<Shape>,
-		whereBuilder: (where: SingleWhereQueryBuilder<Shape>) => WhereQueryBuilder,
+		whereBuilder: (where: SimpleWhereBuilder<Shape>) => PreparedQuery,
 	) {
 		const { rowCount } = await this.query(
 			ConnectionPool.getDeleteFromQuery(entity, whereBuilder),
@@ -254,7 +250,7 @@ export class Connection
 	 */
 	async unsafe_resetAllMigrations() {
 		try {
-			await this.deleteFrom(Migrations, (where) => where.raw(sql`true`));
+			await this.deleteFrom(Migrations, () => sql`true`);
 		} catch (err) {
 			if (!String(err).match(/relation.*does not exist/)) {
 				throw err;
@@ -494,12 +490,10 @@ export class ConnectionPool {
 
 	static getDeleteFromQuery<Shape extends object>(
 		entity: EntityFromShape<Shape>,
-		whereBuilder: (where: SingleWhereQueryBuilder<Shape>) => WhereQueryBuilder,
+		whereBuilder: (where: SimpleWhereBuilder<Shape>) => PreparedQuery,
 	) {
-		const whereQuery = whereBuilder(
-			createSingleWhereBuilder(entity),
-		).getQuery();
-		return sql`DELETE FROM ${entity} ${whereQuery}`;
+		const whereQuery = whereBuilder(createSimpleWhereBuilder(entity));
+		return sql`DELETE FROM ${entity} WHERE ${whereQuery}`;
 	}
 }
 

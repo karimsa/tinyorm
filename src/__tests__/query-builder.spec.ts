@@ -130,11 +130,11 @@ describe("QueryBuilder", () => {
 					.select("user", ["id", "name"])
 					.select("organization", ["name"])
 					.addWhere((where) =>
-						where.either([
-							where("user", "name")
-								.Like("%Karim%")
-								.andWhere("user", "status")
-								.EqualsAny(["Active"]),
+						where.or([
+							where.and([
+								where("user", "name").Like("%Karim%"),
+								where("user", "status").EqualsAny(["Active"]),
+							]),
 							where("organization", "name").Like("Foko"),
 						]),
 					)
