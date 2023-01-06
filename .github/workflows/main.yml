@@ -45,11 +45,11 @@ jobs:
       - name: Lint
         run: yarn lint
 
-      - name: Tests
-        run: yarn test
-
       - name: Build
         run: yarn build
+
+      - name: Tests
+        run: yarn test
 
       - name: Setup for deploy
         if: "startsWith(github.ref, 'refs/tags/v') && matrix.node == 14"
