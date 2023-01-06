@@ -55,10 +55,10 @@ export class MigrationGenerator {
 			.from(TableCatalog, "table_entry")
 			.selectAll("table_entry")
 			.addWhere((where) =>
-				where("table_entry", "table_schema")
-					.Equals(entity.schema)
-					.andWhere("table_entry", "table_name")
-					.Equals(entity.tableName),
+				where.and([
+					where("table_entry", "table_schema").Equals(entity.schema),
+					where("table_entry", "table_name").Equals(entity.tableName),
+				]),
 			)
 			.getOne(this.connection);
 		if (!tableInfo) {
@@ -129,10 +129,10 @@ export class MigrationGenerator {
 			.from(TableIndexCatalog, "index_entry")
 			.selectAll("index_entry")
 			.addWhere((where) =>
-				where("index_entry", "schemaname")
-					.Equals(entity.schema)
-					.andWhere("index_entry", "tablename")
-					.Equals(entity.tableName),
+				where.and([
+					where("index_entry", "schemaname").Equals(entity.schema),
+					where("index_entry", "tablename").Equals(entity.tableName),
+				]),
 			)
 			.getMany(this.connection);
 		const validExistingIndexNames = new Set<string>();
@@ -213,10 +213,10 @@ export class MigrationGenerator {
 			.from(TableColumnCatalog, "col")
 			.selectAll("col")
 			.addWhere((where) =>
-				where("col", "table_schema")
-					.Equals(entity.schema)
-					.andWhere("col", "table_name")
-					.Equals(entity.tableName),
+				where.and([
+					where("col", "table_schema").Equals(entity.schema),
+					where("col", "table_name").Equals(entity.tableName),
+				]),
 			)
 			.getMany(this.connection);
 
