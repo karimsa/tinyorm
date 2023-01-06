@@ -262,6 +262,20 @@ export function getEntityFields(entity: EntityFromShape<unknown>) {
 	return fieldSet;
 }
 
+export function getEntityFieldByName(
+	entity: EntityFromShape<unknown>,
+	field: string,
+) {
+	const fieldSet = getEntityFields(entity);
+	const columnOptions = fieldSet.get(field);
+	if (!columnOptions) {
+		throw new Error(
+			`Failed to find field with name '${field}' for entity with name '${entity.tableName}'`,
+		);
+	}
+	return columnOptions;
+}
+
 export function getEntityKeys(entity: EntityFromShape<unknown>) {
 	return keyRegistry.get(entity.prototype);
 }

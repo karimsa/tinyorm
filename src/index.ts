@@ -43,12 +43,6 @@ export type {
 } from "./query-builder";
 export {
 	createJoinWhereBuilder,
-	createSingleWhereBuilder,
-} from "./where-builder";
-export type {
-	AndWhereQueryBuilder,
-	JoinWhereQueryBuilder,
-	OrWhereQueryBuilder,
-	SingleWhereQueryBuilder,
-	WhereQueryComparators,
+	createSimpleWhereBuilder,
+	type WhereComparators,
 } from "./where-builder";

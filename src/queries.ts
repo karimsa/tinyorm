@@ -282,8 +282,7 @@ export function castValue(
 	queryVar: Exclude<QueryVariable, UnescapedVariable>,
 ) {
 	const typeCast = queryVar.type === "null" ? "" : `::${queryVar.type}`;
-	const arraySuffix = queryVar.isArray ? "[]" : "";
-	return `${name}${typeCast}${arraySuffix}`;
+	return `${name}${typeCast}`;
 }
 
 const kJsonRef = Symbol("jsonRef");
@@ -498,7 +497,7 @@ export interface SqlHelpers {
 	 * @param queries
 	 * @returns joined query
 	 */
-	join(queries: PreparedQuery[]): PreparedQuery;
+	join(queries: PreparedQuery[], delim?: PreparedQuery): PreparedQuery;
 
 	/**
 	 * Creates a PreparedQuery that completely escapes query parameters. Only use this
@@ -616,9 +615,16 @@ const sqlHelpers: SqlHelpers = {
 		}) as unknown as JsonRefBuilder<Shape, Shape>;
 	},
 
-	join: (queries) => {
+	join: (queries, delim) => {
 		if (queries.length === 0) {
 			throw new Error("Cannot join zero queries");
+		}
+		if (delim) {
+			return sql.join(
+				queries.flatMap((query, index) =>
+					index > 0 ? [delim, query] : [query],
+				),
+			);
 		}
 
 		return sql(["", ...queries.map(() => "")], ...queries);

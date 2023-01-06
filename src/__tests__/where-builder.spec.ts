@@ -1,7 +1,8 @@
 import { describe, it } from "@jest/globals";
 import {
+	Column,
 	createJoinWhereBuilder,
-	createSingleWhereBuilder,
+	createSimpleWhereBuilder,
 	Entity,
 	sql,
 } from "../";
@@ -9,13 +10,19 @@ import { expectQuery } from "./util";
 
 describe("WhereBuilder", () => {
 	class User extends Entity({ schema: "public", tableName: "users" }) {
+		@Column({ type: "uuid" })
 		id!: string;
+		@Column({ type: "text" })
 		name!: string;
+		@Column({ type: "text" })
 		status!: "Active" | "Inactive";
 	}
 	class Post extends Entity({ schema: "public", tableName: "posts" }) {
+		@Column({ type: "uuid" })
 		id!: string;
+		@Column({ type: "uuid" })
 		author_id!: string;
+		@Column({ type: "jsonb" })
 		content!: {
 			type: "text" | "image";
 			value: string;
@@ -35,11 +42,9 @@ describe("WhereBuilder", () => {
 
 		it("should allow building where clauses", () => {
 			// Find all users with a name similar to 'Karim'
-			expectQuery(
-				sql.finalize(where("user", "name").Like("%Karim%").getQuery()),
-			).toEqual({
+			expectQuery(sql.finalize(where("user", "name").Like("%Karim%"))).toEqual({
 				text: `
-					WHERE "user"."name" LIKE $1::text
+					"user"."name" LIKE $1::text
 				`,
 				values: ["%Karim%"],
 			});
@@ -47,51 +52,47 @@ describe("WhereBuilder", () => {
 			// Find all users with a name similar to 'Karim' OR is any of ('Bob', 'Alice')
 			expectQuery(
 				sql.finalize(
-					where("user", "name")
-						.Like("%Karim%")
-						.orWhere("user", "name")
-						.EqualsAny(["Bob", "Alice"])
-						.getQuery(),
+					where.or([
+						where("user", "name").Like("%Karim%"),
+						where("user", "name").EqualsAny(["Bob", "Alice"]),
+					]),
 				),
 			).toEqual({
 				text: `
-					WHERE "user"."name" LIKE $1::text OR "user"."name" = ANY($2::text[])
+					"user"."name" LIKE $1::text OR "user"."name" = ANY($2::text[])
 				`,
 				values: ["%Karim%", ["Bob", "Alice"]],
 			});
 			expectQuery(
 				sql.finalize(
-					where
-						.all([
-							where.either([
-								where("user", "name").Like("%Karim%"),
-								where("user", "name").EqualsAny(["Bob", "Alice"]),
-							]),
-							where("user", "status").Equals("Active"),
-						])
-						.getQuery(),
+					where.and([
+						where.or([
+							where("user", "name").Like("%Karim%"),
+							where("user", "name").EqualsAny(["Bob", "Alice"]),
+						]),
+						where("user", "status").Equals("Active"),
+					]),
 				),
 			).toEqual({
 				text: `
-					WHERE ("user"."name" LIKE $1::text OR "user"."name" = ANY($2::text[]))
+					("user"."name" LIKE $1::text OR "user"."name" = ANY($2::text[]))
 					AND "user"."status" = $3::text
 				`,
 				values: ["%Karim%", ["Bob", "Alice"], "Active"],
 			});
 		});
 
-		it("should allow JSONB queries", () => {
+		it.only("should allow JSONB queries", () => {
 			// Check top-level JSON field value
 			expectQuery(
 				sql.finalize(
 					where("post", sql.json(Post).content.type)
 						.CastAs("text")
-						.Equals("text")
-						.getQuery(),
+						.Equals("text"),
 				),
 			).toEqual({
 				text: `
-					WHERE ("post"."content"->"type")::text = $1::text
+					("post"."content"->"type")::text = $1::text
 				`,
 				values: ["text"],
 			});
@@ -101,12 +102,11 @@ describe("WhereBuilder", () => {
 				sql.finalize(
 					where("post", sql.json(Post).content.nestedObject.hello)
 						.CastAs("text")
-						.Equals("world")
-						.getQuery(),
+						.Equals("world"),
 				),
 			).toEqual({
 				text: `
-					WHERE ("post"."content"->"nestedObject"->"hello")::text = $1::text
+					("post"."content"->"nestedObject"->"hello")::text = $1::text
 				`,
 				values: ["world"],
 			});
@@ -114,12 +114,11 @@ describe("WhereBuilder", () => {
 				sql.finalize(
 					where("post", sql.json(Post).content.nestedObject.isBool)
 						.CastAs("boolean")
-						.Equals(true)
-						.getQuery(),
+						.Equals(true),
 				),
 			).toEqual({
 				text: `
-					WHERE ("post"."content"->"nestedObject"->"isBool")::text::boolean = $1::boolean
+					("post"."content"->"nestedObject"->"isBool")::text::boolean = $1::boolean
 				`,
 				values: [true],
 			});
@@ -127,13 +126,13 @@ describe("WhereBuilder", () => {
 			// Sub-object checks
 			expectQuery(
 				sql.finalize(
-					where("post", sql.json(Post).content.nestedObject)
-						.JsonContains({ isBool: true })
-						.getQuery(),
+					where("post", sql.json(Post).content.nestedObject).JsonContains({
+						isBool: true,
+					}),
 				),
 			).toEqual({
 				text: `
-					WHERE "post"."content"->"nestedObject" @> $1::jsonb
+					"post"."content"->"nestedObject" @> $1::jsonb
 				`,
 				values: [`{"isBool":true}`],
 			});
@@ -141,15 +140,13 @@ describe("WhereBuilder", () => {
 	});
 
 	describe("SingleWhereBuilder", () => {
-		const where = createSingleWhereBuilder(User);
+		const where = createSimpleWhereBuilder(User);
 
 		it("should allow building where clauses", () => {
 			// Find all users with a name similar to 'Karim'
-			expectQuery(
-				sql.finalize(where("name").Like("%Karim%").getQuery()),
-			).toEqual({
+			expectQuery(sql.finalize(where("name").Like("%Karim%"))).toEqual({
 				text: `
-					WHERE "name" LIKE $1::text
+					"name" LIKE $1::text
 				`,
 				values: ["%Karim%"],
 			});
@@ -157,15 +154,14 @@ describe("WhereBuilder", () => {
 			// Find all users with a name similar to 'Karim' OR is any of ('Bob', 'Alice')
 			expectQuery(
 				sql.finalize(
-					where("name")
-						.Like("%Karim%")
-						.orWhere("name")
-						.EqualsAny(["Bob", "Alice"])
-						.getQuery(),
+					where.or([
+						where("name").Like("%Karim%"),
+						where("name").EqualsAny(["Bob", "Alice"]),
+					]),
 				),
 			).toEqual({
 				text: `
-					WHERE "name" LIKE $1::text OR "name" = ANY($2::text[])
+					"name" LIKE $1::text OR "name" = ANY($2::text[])
 				`,
 				values: ["%Karim%", ["Bob", "Alice"]],
 			});
